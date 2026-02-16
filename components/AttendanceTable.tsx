@@ -13,19 +13,17 @@ interface AttendanceTableProps {
 const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkMode, onUpdate }) => {
   const t = TRANSLATIONS[language];
 
-  // Get all unique dates for headers
-  const allDatesSet = new Set<string>();
-  data.employees.forEach(emp => {
-    emp.records.forEach(rec => allDatesSet.add(rec.date));
-  });
-  const sortedDates = Array.from(allDatesSet).sort();
+  // Safely get headers from the first employee's records
+  const headerDates = data?.employees?.[0]?.records?.map(r => r.date) || [];
 
-  const handleCellChange = (empIndex: number, dateIndex: number, type: 'check_in' | 'check_out' | 'name', newValue: string) => {
+  const handleCellChange = (empIndex: number, dateStr: string, type: 'check_in' | 'check_out' | 'name', newValue: string) => {
+    if (!data?.employees) return;
+    
     const newData = JSON.parse(JSON.stringify(data)); // Deep clone
     if (type === 'name') {
       newData.employees[empIndex].employee_name.value = newValue;
     } else {
-      const record = newData.employees[empIndex].records.find((r: any) => r.date === sortedDates[dateIndex]);
+      const record = newData.employees[empIndex].records?.find((r: any) => r.date === dateStr);
       if (record) {
         record[type].value = newValue === '' ? null : newValue;
       }
@@ -34,11 +32,15 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
   };
 
   const getConfidenceColor = (confidence: number, value: any) => {
-    if (value === null || value === '') return ''; // Don't highlight empty cells
+    if (value === null || value === '' || value === undefined) return ''; 
     if (confidence < 75) return 'bg-red-50 text-red-900 border-red-200';
     if (confidence < 90) return 'bg-yellow-50 text-yellow-900 border-yellow-200';
     return '';
   };
+
+  if (!data?.employees || data.employees.length === 0) {
+    return <div className="p-8 text-center text-gray-500">No data found in this file.</div>;
+  }
 
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
@@ -46,7 +48,7 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
         <thead className={`${darkMode ? 'bg-gray-800' : 'bg-gray-100'} text-xs uppercase font-bold`}>
           <tr>
             <th className="px-6 py-4 sticky right-0 bg-inherit border-l shadow-sm z-10 min-w-[200px]">{t.employeeName}</th>
-            {sortedDates.map((date, idx) => (
+            {headerDates.map((date, idx) => (
               <React.Fragment key={date}>
                 <th 
                   className="px-6 py-4 border-l text-center bg-gray-50/50" 
@@ -59,7 +61,7 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
           </tr>
           <tr className="border-t border-gray-300">
             <th className="px-6 py-2 sticky right-0 bg-inherit border-l shadow-sm z-10"></th>
-            {sortedDates.map((date, idx) => (
+            {headerDates.map((date, idx) => (
               idx === 0 ? (
                 <th key={`${date}-sub-single`} className="px-2 py-2 border-l text-center min-w-[120px]">{t.checkIn}</th>
               ) : (
@@ -77,24 +79,24 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
               <td className="px-4 py-3 sticky right-0 bg-inherit border-l shadow-sm z-10">
                 <input
                   type="text"
-                  value={emp.employee_name.value}
-                  onChange={(e) => handleCellChange(empIdx, 0, 'name', e.target.value)}
-                  className={`w-full p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 font-medium ${getConfidenceColor(emp.employee_name.confidence, emp.employee_name.value)}`}
+                  value={emp.employee_name?.value || ''}
+                  onChange={(e) => handleCellChange(empIdx, '', 'name', e.target.value)}
+                  className={`w-full p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 font-medium ${getConfidenceColor(emp.employee_name?.confidence || 0, emp.employee_name?.value)}`}
                 />
               </td>
-              {sortedDates.map((date, dateIdx) => {
-                const record = emp.records.find(r => r.date === date);
+              {headerDates.map((date, dateIdx) => {
+                const record = emp.records?.find(r => r.date === date);
                 if (dateIdx === 0) {
                   return (
                     <td key={`${empIdx}-${date}-single`} className="px-2 py-3 border-l text-center relative">
                       <input
                         type="text"
-                        value={record?.check_in.value || ''}
-                        onChange={(e) => handleCellChange(empIdx, dateIdx, 'check_in', e.target.value)}
-                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_in.confidence || 0, record?.check_in.value)}`}
+                        value={record?.check_in?.value || ''}
+                        onChange={(e) => handleCellChange(empIdx, date, 'check_in', e.target.value)}
+                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_in?.confidence || 0, record?.check_in?.value)}`}
                         placeholder="--"
                       />
-                      {record?.check_in.note?.value && (
+                      {record?.check_in?.note?.value && (
                         <div className="text-[9px] text-blue-600 font-bold mt-0.5 opacity-80">{record.check_in.note.value}</div>
                       )}
                     </td>
@@ -105,24 +107,24 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
                     <td className="px-2 py-3 border-l text-center">
                       <input
                         type="text"
-                        value={record?.check_in.value || ''}
-                        onChange={(e) => handleCellChange(empIdx, dateIdx, 'check_in', e.target.value)}
-                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_in.confidence || 0, record?.check_in.value)}`}
+                        value={record?.check_in?.value || ''}
+                        onChange={(e) => handleCellChange(empIdx, date, 'check_in', e.target.value)}
+                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_in?.confidence || 0, record?.check_in?.value)}`}
                         placeholder="--"
                       />
-                      {record?.check_in.note?.value && (
+                      {record?.check_in?.note?.value && (
                         <div className="text-[9px] text-blue-600 font-bold mt-0.5 opacity-80">{record.check_in.note.value}</div>
                       )}
                     </td>
                     <td className="px-2 py-3 border-l text-center">
                       <input
                         type="text"
-                        value={record?.check_out.value || ''}
-                        onChange={(e) => handleCellChange(empIdx, dateIdx, 'check_out', e.target.value)}
-                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_out.confidence || 0, record?.check_out.value)}`}
+                        value={record?.check_out?.value || ''}
+                        onChange={(e) => handleCellChange(empIdx, date, 'check_out', e.target.value)}
+                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_out?.confidence || 0, record?.check_out?.value)}`}
                         placeholder="--"
                       />
-                      {record?.check_out.note?.value && (
+                      {record?.check_out?.note?.value && (
                         <div className="text-[9px] text-blue-600 font-bold mt-0.5 opacity-80">{record.check_out.note.value}</div>
                       )}
                     </td>

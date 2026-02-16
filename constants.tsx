@@ -36,7 +36,6 @@ export const TRANSLATIONS = {
     deleteName: "حذف",
     dictionaryEmpty: "القاموس فارغ. أضف أسماء الموظفين لضمان دقة أعلى.",
     nameExists: "هذا الاسم موجود بالفعل",
-    // New Translations
     userManagement: "إدارة المستخدمين",
     manageUsersSubtitle: "إنشاء وتعديل حسابات الموظفين وصلاحياتهم",
     addUser: "إضافة مستخدم جديد",
@@ -50,7 +49,16 @@ export const TRANSLATIONS = {
     newDatabase: "إنشاء قاعدة بيانات جديدة",
     dbLoaded: "تم تحميل قاعدة البيانات بنجاح",
     invalidLogin: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
-    noDbFile: "لم يتم العثور على ملف قاعدة البيانات"
+    noDbFile: "لم يتم العثور على ملف قاعدة البيانات",
+    selectYear: "اختر السنة",
+    yearPlaceholder: "السنة المالية للكشف",
+    titleWithYear: "الكشف لسنة",
+    saturdayFirst: "تنبيه: الكشف يبدأ من السبت على اليمين",
+    visualDictionary: "نماذج الأرقام",
+    visualDictionarySubtitle: "رفع عينات من الأرقام المكتوبة بخط اليد لتدريب النظام",
+    addSample: "إضافة عينة",
+    digitValue: "قيمة الرقم",
+    noSamples: "لا توجد عينات بعد. ارفع قصاصات من الأرقام لزيادة الدقة."
   },
   en: {
     title: "Handwritten Attendance Converter",
@@ -88,7 +96,6 @@ export const TRANSLATIONS = {
     deleteName: "Delete",
     dictionaryEmpty: "Dictionary is empty. Add names to ensure higher accuracy.",
     nameExists: "This name already exists",
-    // New Translations
     userManagement: "User Management",
     manageUsersSubtitle: "Create and manage employee accounts and permissions",
     addUser: "Add New User",
@@ -102,7 +109,16 @@ export const TRANSLATIONS = {
     newDatabase: "Create New Database",
     dbLoaded: "Database loaded successfully",
     invalidLogin: "Invalid email or password",
-    noDbFile: "No database file found"
+    noDbFile: "No database file found",
+    selectYear: "Select Year",
+    yearPlaceholder: "Fiscal Year of sheet",
+    titleWithYear: "Sheet Year",
+    saturdayFirst: "Note: Sheet starts from Saturday on the right",
+    visualDictionary: "Number Samples",
+    visualDictionarySubtitle: "Upload snippets of handwritten numbers to train the system",
+    addSample: "Add Sample",
+    digitValue: "Digit Value",
+    noSamples: "No samples yet. Upload snippets of numbers to increase accuracy."
   }
 };
 

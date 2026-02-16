@@ -1,58 +1,50 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { ExtractionResult } from "../types";
+import { ExtractionResult, VisualReference } from "../types";
 
 // The API key is obtained from process.env.API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const SYSTEM_PROMPT = `
-You are a world-class Arabic document digitizer and handwriting analyst specializing in HR attendance sheets. You must extract data with extreme spatial and chronological precision.
+You are a specialized Arabic Handwriting Analyst for HR Attendance systems. 
+The provided sheets are filled by MULTIPLE people, so styles vary significantly. 
 
-WEEKLY STRUCTURE & SPATIAL LOGIC:
-1. **Right-to-Left (RTL) Orientation**: The sheet is read from right to left. 
-2. **Work Week Constraints**:
-   - Saturday (rightmost) usually only has a Check-in column.
-   - Sunday to Thursday have both Check-in and Check-out.
+AMBIGUITY RESOLUTION PROTOCOL (USING VISUAL REFERENCES):
+1. **Visual Keying**: You will be provided with "Reference Samples" (images of digits labeled with their digital values).
+   - Use these samples to understand the specific handwriting style of the writers.
+   - If a digit on the sheet matches the visual style of a reference image, map it to that digital value.
+   - For example, if a provided sample shows a '١' (1) that looks like a '٧' (7), use that knowledge to correctly decode the attendance times.
 
-CRITICAL ACCURACY PROTOCOL (WRITER-SPECIFIC STYLE):
-- **Arabic Digit Recognition (Severe Ambiguities Observed)**:
-  - "٠" (0): Often looks like a dot, but this writer also uses a vertical line "١" or a circle "٥" to represent zero in some positions.
-  - "١" (1): Usually a vertical line, but can be a "٠" (0).
-  - "٢" (2) vs "٣" (3): **CRITICAL**: This writer often simplifies "٣" (3) so it looks like "٢" (2).
-  - "٥" (5) vs "٠" (0): **CRITICAL**: A "٥" (circle) can be a "٠" (zero), and a "٠" (dot) can be a "٥" (five).
-  
-- **KNOWN SUBSTITUTIONS FROM USER FEEDBACK**:
-  - Image "١٠٢٠" (1020) is actually "10:35" (meaning ٢=٣ and ٠=٥).
-  - Image "١١٥٥" (1155) is actually "10:50" (meaning second ١=٠ and second ٥=٠).
-  - Image "٨٢٠" is actually "٨:٣٠" (8:30).
+2. **Core Recognition Rules**:
+   - "١" (1) vs "٧" (7): Check for visual match with reference samples.
+   - "٣" (3) vs "٤" (4): Distinguish between "teeth" and "zigzags" based on samples.
+   - "٢٥" (25) vs "٥٠" (50): Crucial for departure times.
+   - "٥" (5) vs "٠" (0): Circle vs Dot.
 
-- **AMBIGUITY RESOLUTION**:
-  - Use chronological context: Check-ins are typically 07:00-10:59. Check-outs are 14:00-17:00.
-  - If you see "11:55" and it's a check-in, it's highly likely to be "10:50" or "10:55" based on this writer's style.
+3. **Time Normalization**:
+   - Convert all inputs to "HH:MM" format.
+   - Handle various separators (., : , space) or no separator.
 
-- **Time Formatting**:
-  - Convert to 24-hour format for check-outs.
-  - Always output "HH:MM".
+4. **Shift Context**:
+   - Check-in: 07:00 - 11:00.
+   - Check-out: 14:00 - 18:00 (Convert to 24h).
+
+5. **Table Logic (Strict RTL)**:
+   - Start from Saturday on the far right.
+   - Pair columns for Sun-Thu.
 `;
 
 const USER_PROMPT = `
-Process this handwritten Arabic attendance sheet. 
+Process this attendance sheet for the year {{YEAR}}.
 
-WRITER STYLE CONTEXT & LEARNED EXAMPLES:
-- **Major Confusion**: 0, 1, and 5 are highly interchangeable visually.
-- **Example Corrections**:
-  - "١١٥٥" -> "10:50" (Ten fifty).
-  - "١٠٢٠" -> "10:35" (Ten thirty-five).
-  - "٦٤٣" -> "07:53" (Seven fifty-three).
-  - "٨٢٠" -> "08:30" (Eight thirty).
+CONTEXTUAL AIDS:
+1. **Name Dictionary**: {{DICTIONARY}}
+2. **Visual Reference Samples**: I am providing multiple images labeled with their intended digit values. Use these as your primary visual guide for character recognition.
 
-1. Locate names in the far-right column. Use the dictionary if provided.
-2. Identify date headers (DD/MM).
-3. Recognize digits with high contextual awareness of this specific style.
-4. Convert afternoon check-outs to 24-hour format.
-
-REFERENCE DICTIONARY:
-{{DICTIONARY}}
+INSTRUCTIONS:
+- Digitize all names and times.
+- Format times strictly as HH:MM.
+- If a cell is blank, return null.
 `;
 
 const EXTRACTION_SCHEMA = {
@@ -76,7 +68,7 @@ const EXTRACTION_SCHEMA = {
             items: {
               type: Type.OBJECT,
               properties: {
-                date: { type: Type.STRING },
+                date: { type: Type.STRING, description: "Date in DD/MM format" },
                 check_in: {
                   type: Type.OBJECT,
                   properties: {
@@ -123,42 +115,59 @@ const EXTRACTION_SCHEMA = {
 
 export async function extractAttendanceData(
   imageBase64: string, 
+  year: number,
   mimeType: string = 'image/jpeg',
-  nameDictionary: string[] = []
+  nameDictionary: string[] = [],
+  visualRefs: VisualReference[] = []
 ): Promise<ExtractionResult> {
   try {
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-    const dictionaryString = nameDictionary.length > 0 ? nameDictionary.join(', ') : 'No specific names provided.';
+    const mainImageBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const dictionaryString = nameDictionary.length > 0 ? nameDictionary.join(', ') : 'None';
+
+    // Build parts: User Prompt + Main Image + Reference Images
+    const parts: any[] = [
+      { text: USER_PROMPT.replace('{{DICTIONARY}}', dictionaryString).replace('{{YEAR}}', year.toString()) },
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: mainImageBase64,
+        },
+      }
+    ];
+
+    // Add visual references to the prompt parts
+    visualRefs.forEach(ref => {
+      const refData = ref.imageBase64.includes(',') ? ref.imageBase64.split(',')[1] : ref.imageBase64;
+      parts.push({ text: `REFERENCE SAMPLE FOR DIGIT "${ref.digit}":` });
+      parts.push({
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: refData
+        }
+      });
+    });
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: {
-        parts: [
-          { text: USER_PROMPT.replace('{{DICTIONARY}}', dictionaryString) },
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data,
-            },
-          },
-        ],
-      },
+      contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: EXTRACTION_SCHEMA as any,
-        thinkingConfig: { thinkingBudget: 15000 }
+        thinkingConfig: { thinkingBudget: 24576 }
       },
     });
 
     const text = response.text || '';
-    if (!text) {
-      throw new Error("Empty response from AI");
-    }
+    const parsed = JSON.parse(text);
     
-    return JSON.parse(text);
+    if (!parsed.employees || parsed.employees.length === 0) {
+      throw new Error("No data could be extracted.");
+    }
+
+    return parsed;
   } catch (error) {
-    console.error("Extraction error details:", error);
-    throw new Error(`Failed to process the document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Extraction error:", error);
+    throw new Error(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

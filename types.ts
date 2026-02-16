@@ -5,8 +5,14 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password?: string; // Only stored in the JSON file for local auth
+  password?: string;
   role: Role;
+}
+
+export interface VisualReference {
+  id: string;
+  digit: string;
+  imageBase64: string;
 }
 
 export interface ConfidenceValue<T> {
@@ -15,7 +21,7 @@ export interface ConfidenceValue<T> {
 }
 
 export interface AttendanceRecord {
-  date: string; // ISO format YYYY-MM-DD
+  date: string;
   check_in: ConfidenceValue<string | null> & { note?: ConfidenceValue<string | null> };
   check_out: ConfidenceValue<string | null> & { note?: ConfidenceValue<string | null> };
 }
@@ -41,6 +47,7 @@ export interface AttendanceFile {
   uploaded_by: string;
   upload_date: string;
   status: FileStatus;
+  year: number;
   data?: ExtractionResult;
   previewUrl?: string;
 }
@@ -49,6 +56,7 @@ export interface AppState {
   users: User[];
   files: AttendanceFile[];
   nameDictionary: string[];
+  visualReferences: VisualReference[];
   language: 'ar' | 'en';
   darkMode: boolean;
   isDatabaseLoaded: boolean;

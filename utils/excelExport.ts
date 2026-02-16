@@ -5,23 +5,19 @@ import { ExtractionResult } from '../types';
 export function exportToExcel(data: ExtractionResult, fileName: string) {
   const wb = XLSX.utils.book_new();
   
-  // Get all unique dates for headers
-  const allDatesSet = new Set<string>();
-  data.employees.forEach(emp => {
-    emp.records.forEach(rec => allDatesSet.add(rec.date));
-  });
-  const sortedDates = Array.from(allDatesSet).sort();
+  // Header dates as ordered in extraction (which respects AI extraction sequence)
+  const headerDates = data.employees[0]?.records.map(r => r.date) || [];
   
   const headers = ['اسم الموظف'];
-  sortedDates.forEach((date, idx) => {
+  headerDates.forEach((date, idx) => {
     if (idx === 0) {
-      headers.push(`${date}`);
-      headers.push(`${date} (ملاحظة)`);
+      headers.push(`${date} (حضور)`);
+      headers.push(`${date} (ملاحظة حضور)`);
     } else {
       headers.push(`${date} (حضور)`);
-      headers.push(`${date} (حضور - ملاحظة)`);
+      headers.push(`${date} (ملاحظة حضور)`);
       headers.push(`${date} (انصراف)`);
-      headers.push(`${date} (انصراف - ملاحظة)`);
+      headers.push(`${date} (ملاحظة انصراف)`);
     }
   });
   
@@ -29,16 +25,16 @@ export function exportToExcel(data: ExtractionResult, fileName: string) {
   
   data.employees.forEach(emp => {
     const row: any[] = [emp.employee_name.value];
-    sortedDates.forEach((date, idx) => {
+    headerDates.forEach((date, idx) => {
       const record = emp.records.find(r => r.date === date);
       if (idx === 0) {
-        row.push(record?.check_in.value || '');
-        row.push(record?.check_in.note?.value || '');
+        row.push(record?.check_in?.value || '');
+        row.push(record?.check_in?.note?.value || '');
       } else {
-        row.push(record?.check_in.value || '');
-        row.push(record?.check_in.note?.value || '');
-        row.push(record?.check_out.value || '');
-        row.push(record?.check_out.note?.value || '');
+        row.push(record?.check_in?.value || '');
+        row.push(record?.check_in?.note?.value || '');
+        row.push(record?.check_out?.value || '');
+        row.push(record?.check_out?.note?.value || '');
       }
     });
     rows.push(row);
@@ -51,7 +47,7 @@ export function exportToExcel(data: ExtractionResult, fileName: string) {
   ws['!views'].push({ RTL: true });
   
   // Add some basic styling (column widths)
-  const wscols = [{ wch: 25 }]; // First column wider for names
+  const wscols = [{ wch: 30 }]; // First column wider for names
   for (let i = 1; i < headers.length; i++) {
     wscols.push({ wch: 15 });
   }

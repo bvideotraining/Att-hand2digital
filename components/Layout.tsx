@@ -55,6 +55,12 @@ const Layout: React.FC<LayoutProps> = ({
                       {t.manageDictionary}
                     </button>
                     <button 
+                      onClick={() => onNavigate('samples')}
+                      className={`px-4 py-2 rounded-lg font-medium transition ${currentView === 'samples' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`}
+                    >
+                      {t.visualDictionary}
+                    </button>
+                    <button 
                       onClick={() => onNavigate('users')}
                       className={`px-4 py-2 rounded-lg font-medium transition ${currentView === 'users' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`}
                     >
