@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TRANSLATIONS } from '../constants';
 import { User, Role } from '../types';
 
@@ -14,12 +14,17 @@ interface LayoutProps {
   onSaveDatabase: () => void;
   onNavigate: (view: any) => void;
   currentView: string;
+  syncStatus?: string | null;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView
+  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView, syncStatus
 }) => {
-  const t = TRANSLATIONS[language];
+  // Defensive translation access
+  const t = useMemo(() => {
+    const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
+    return TRANSLATIONS[safeLang] || TRANSLATIONS.ar;
+  }, [language]);
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -76,11 +81,11 @@ const Layout: React.FC<LayoutProps> = ({
             {user && (
               <button 
                 onClick={onSaveDatabase}
-                className="hidden sm:flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold transition shadow-sm text-sm"
+                className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition shadow-sm text-sm ${syncStatus === 'synced' ? 'bg-green-100 text-green-700' : 'bg-green-600 hover:bg-green-700 text-white'}`}
                 title={t.saveDatabase}
               >
-                <i className="fas fa-save"></i>
-                <span className="hidden xl:inline">{t.saveDatabase}</span>
+                <i className={`fas ${syncStatus === 'synced' ? 'fa-check' : 'fa-save'}`}></i>
+                <span className="hidden xl:inline">{syncStatus === 'synced' ? 'Synced' : t.saveDatabase}</span>
               </button>
             )}
 
@@ -121,7 +126,7 @@ const Layout: React.FC<LayoutProps> = ({
       </main>
 
       <footer className={`py-6 border-t text-center text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>
-        <p>&copy; {new Date().getFullYear()} Arabic Attendance OCR. Secure Local Storage Version.</p>
+        <p>&copy; {new Date().getFullYear()} Arabic Attendance OCR. Secure Dual-Persistence Mode.</p>
       </footer>
     </div>
   );

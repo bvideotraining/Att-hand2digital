@@ -1,5 +1,5 @@
 {
-  "name": "Arabic Handwritten Attendance Converter",
+  "name": "Arabic Handwritten Attendance",
   "description": "An AI-powered system that extracts structured data from handwritten Arabic attendance sheets and exports them to Excel.",
   "requestFramePermissions": [
     "camera"

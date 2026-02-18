@@ -60,4 +60,5 @@ export interface AppState {
   language: 'ar' | 'en';
   darkMode: boolean;
   isDatabaseLoaded: boolean;
+  connectedFileName?: string;
 }
