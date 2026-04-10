@@ -21,6 +21,7 @@ interface HomePageProps {
   t: any;
   language: string;
   darkMode: boolean;
+  siteSettings?: import('../types').SiteSettings;
   onGetStarted: () => void;
   onSignIn: () => void;
   onLanguageToggle: () => void;
@@ -31,12 +32,26 @@ const HomePage: React.FC<HomePageProps> = ({
   t, 
   language, 
   darkMode, 
+  siteSettings,
   onGetStarted, 
   onSignIn,
   onLanguageToggle,
   onThemeToggle
 }) => {
   const isRtl = language === 'ar';
+
+  // Fallback content if siteSettings is not provided
+  const heroTitle = isRtl ? (siteSettings?.heroTitleAr || t.heroTitle) : (siteSettings?.heroTitleEn || t.heroTitle);
+  const heroSubtitle = isRtl ? (siteSettings?.heroSubtitleAr || t.heroSubtitle) : (siteSettings?.heroSubtitleEn || t.heroSubtitle);
+  const ctaText = isRtl ? (siteSettings?.ctaTextAr || t.startForFree) : (siteSettings?.ctaTextEn || t.startForFree);
+  
+  const features = siteSettings?.features || [
+    { id: '1', icon: 'Zap', titleAr: t.feature1Title, titleEn: t.feature1Title, descAr: t.feature1Desc, descEn: t.feature1Desc },
+    { id: '2', icon: 'ShieldCheck', titleAr: t.feature2Title, titleEn: t.feature2Title, descAr: t.feature2Desc, descEn: t.feature2Desc },
+    { id: '3', icon: 'Download', titleAr: t.feature3Title, titleEn: t.feature3Title, descAr: t.feature3Desc, descEn: t.feature3Desc }
+  ];
+
+  const menuStyle = siteSettings?.menuStyle || 'classic';
 
   return (
     <div className={`min-h-screen font-sans ${darkMode ? 'bg-gray-950 text-white' : 'bg-white text-gray-900'} transition-colors duration-300`}>
@@ -101,7 +116,7 @@ const HomePage: React.FC<HomePageProps> = ({
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]"
           >
-            {t.heroTitle.split(' ').map((word: string, i: number) => (
+            {heroTitle.split(' ').map((word: string, i: number) => (
               <span key={i} className={i >= 2 ? "text-blue-600" : ""}>{word} </span>
             ))}
           </motion.h1>
@@ -112,7 +127,7 @@ const HomePage: React.FC<HomePageProps> = ({
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg md:text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed"
           >
-            {t.heroSubtitle}
+            {heroSubtitle}
           </motion.p>
 
           <motion.div 
@@ -125,7 +140,7 @@ const HomePage: React.FC<HomePageProps> = ({
               onClick={onGetStarted}
               className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-500/30 flex items-center justify-center gap-2"
             >
-              {t.startForFree}
+              {ctaText}
               <ArrowRight className={`w-5 h-5 ${isRtl ? 'rotate-180' : ''}`} />
             </button>
             <button 
@@ -147,23 +162,23 @@ const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: <Upload className="w-6 h-6 text-blue-600" />, title: t.easyUpload, desc: t.easyUploadDesc, color: 'blue' },
-              { icon: <Zap className="w-6 h-6 text-purple-600" />, title: t.smartOCR, desc: t.smartOCRDesc, color: 'purple' },
-              { icon: <ShieldCheck className="w-6 h-6 text-green-600" />, title: t.fuzzyMatching, desc: t.fuzzyMatchingDesc, color: 'green' }
-            ].map((feature, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ y: -5 }}
-                className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-gray-500 dark:text-gray-400 leading-relaxed">{feature.desc}</p>
-              </motion.div>
-            ))}
+            {features.map((feature, i) => {
+              const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare };
+              const IconComponent = IconMap[feature.icon] || Zap;
+              return (
+                <motion.div
+                  key={feature.id || i}
+                  whileHover={{ y: -5 }}
+                  className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}
+                >
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                    <IconComponent className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{isRtl ? feature.titleAr : feature.titleEn}</h3>
+                  <p className="text-gray-500 dark:text-gray-400 leading-relaxed">{isRtl ? feature.descAr : feature.descEn}</p>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -4,14 +4,17 @@ import { ExtractionResult } from "../types";
 
 // Lazy initialization
 let aiInstance: any = null;
+let currentApiKey: string | null = null;
 
-function getAI() {
-  if (!aiInstance) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment variables.");
+function getAI(customApiKey?: string) {
+  const apiKeyToUse = customApiKey || import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  
+  if (!aiInstance || currentApiKey !== apiKeyToUse) {
+    if (!apiKeyToUse) {
+      throw new Error("Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment variables or provide it in CMS settings.");
     }
-    aiInstance = new GoogleGenAI({ apiKey });
+    aiInstance = new GoogleGenAI({ apiKey: apiKeyToUse });
+    currentApiKey = apiKeyToUse;
   }
   return aiInstance;
 }
@@ -159,7 +162,8 @@ export async function extractAttendanceData(
   visualRefs: any[] = [],
   startDate?: string,
   endDate?: string,
-  correctionHistory: any[] = []
+  correctionHistory: any[] = [],
+  customApiKey?: string
 ): Promise<ExtractionResult> {
   try {
     const mainImageBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
@@ -198,7 +202,7 @@ export async function extractAttendanceData(
       });
     });
 
-    const response = await getAI().models.generateContent({
+    const response = await getAI(customApiKey).models.generateContent({
       model: 'gemini-2.0-flash',
       contents: { parts },
       config: {

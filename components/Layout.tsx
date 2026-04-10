@@ -28,10 +28,11 @@ interface LayoutProps {
   onNavigate: (view: any) => void;
   currentView: string;
   syncStatus?: string | null;
+  siteSettings?: import('../types').SiteSettings;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView, syncStatus
+  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView, syncStatus, siteSettings
 }) => {
   // Defensive translation access
   const t = useMemo(() => {
@@ -87,6 +88,13 @@ const Layout: React.FC<LayoutProps> = ({
                     >
                       <Users className="w-4 h-4" />
                       {t.userManagement}
+                    </button>
+                    <button 
+                      onClick={() => onNavigate('cms')}
+                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'cms' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                    >
+                      <Globe className="w-4 h-4" />
+                      CMS
                     </button>
                   </>
                 )}
@@ -148,7 +156,11 @@ const Layout: React.FC<LayoutProps> = ({
       <footer className={`py-8 border-t text-center text-sm ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-500' : 'bg-white border-gray-100 text-gray-500'}`}>
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <p>&copy; {new Date().getFullYear()} HandAttend AI. {t.copyright_footer || 'Secure Dual-Persistence Mode.'}</p>
-          <div className="flex gap-6">
+          <div className="flex gap-6 items-center">
+            {siteSettings?.socialLinks?.facebook && <a href={siteSettings.socialLinks.facebook} target="_blank" rel="noreferrer" className="hover:text-blue-600 transition-colors">Facebook</a>}
+            {siteSettings?.socialLinks?.twitter && <a href={siteSettings.socialLinks.twitter} target="_blank" rel="noreferrer" className="hover:text-blue-400 transition-colors">Twitter</a>}
+            {siteSettings?.socialLinks?.linkedin && <a href={siteSettings.socialLinks.linkedin} target="_blank" rel="noreferrer" className="hover:text-blue-700 transition-colors">LinkedIn</a>}
+            {siteSettings?.socialLinks?.github && <a href={siteSettings.socialLinks.github} target="_blank" rel="noreferrer" className="hover:text-gray-900 dark:hover:text-white transition-colors">GitHub</a>}
             <a href="#" className="hover:text-blue-600 transition-colors">{t.termsOfService}</a>
             <a href="#" className="hover:text-blue-600 transition-colors">{t.privacyPolicy}</a>
           </div>

@@ -6,6 +6,7 @@ import { TRANSLATIONS } from './constants';
 import Layout from './components/Layout';
 import AttendanceTable from './components/AttendanceTable';
 import HomePage from './components/HomePage';
+import AdminCMS from './components/AdminCMS';
 import { extractAttendanceData } from './services/geminiService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
@@ -90,7 +91,22 @@ const INITIAL_STATE: AppState = {
   language: 'ar',
   darkMode: false,
   isDatabaseLoaded: false,
-  connectedFileName: undefined
+  connectedFileName: undefined,
+  siteSettings: {
+    heroTitleAr: "تحويل كشوف الحضور المكتوبة بخط اليد إلى بيانات رقمية",
+    heroTitleEn: "Convert Handwritten Attendance to Digital Data",
+    heroSubtitleAr: "استخدم الذكاء الاصطناعي لاستخراج البيانات من كشوف الحضور العربية بدقة عالية",
+    heroSubtitleEn: "Use AI to extract data from Arabic attendance sheets with high accuracy",
+    ctaTextAr: "ابدأ الآن",
+    ctaTextEn: "Get Started",
+    features: [
+      { id: '1', icon: 'Zap', titleAr: 'سرعة فائقة', titleEn: 'Lightning Fast', descAr: 'معالجة الكشوف في ثوانٍ', descEn: 'Process sheets in seconds' },
+      { id: '2', icon: 'ShieldCheck', titleAr: 'دقة عالية', titleEn: 'High Accuracy', descAr: 'تعرف دقيق على الخط العربي', descEn: 'Accurate Arabic handwriting recognition' },
+      { id: '3', icon: 'Download', titleAr: 'تصدير سهل', titleEn: 'Easy Export', descAr: 'تصدير البيانات إلى Excel', descEn: 'Export data to Excel' }
+    ],
+    socialLinks: { facebook: '', twitter: '', linkedin: '', github: '' },
+    menuStyle: 'classic'
+  }
 };
 
 // --- Custom Hooks ---
@@ -526,7 +542,7 @@ const App: React.FC = () => {
   });
   const t = useTranslation(state.language);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'review' | 'dictionary' | 'users' | 'samples'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'review' | 'dictionary' | 'users' | 'samples' | 'cms'>('dashboard');
   const [showLanding, setShowLanding] = useState(true);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState(false);
@@ -1038,7 +1054,8 @@ const App: React.FC = () => {
         state.visualReferences,
         startDate,
         endDate,
-        state.correctionHistory
+        state.correctionHistory,
+        state.siteSettings?.geminiApiKey
       );
       
       setState(p => {
@@ -1109,6 +1126,7 @@ const App: React.FC = () => {
               t={t} 
               language={state.language} 
               darkMode={state.darkMode} 
+              siteSettings={state.siteSettings}
               onGetStarted={() => setShowLanding(false)} 
               onSignIn={() => setShowLanding(false)}
               onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
@@ -1139,6 +1157,7 @@ const App: React.FC = () => {
             user={currentUser} 
             language={state.language} 
             darkMode={state.darkMode} 
+            siteSettings={state.siteSettings}
             onLogout={handleLogout} 
             onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))} 
             onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))} 
@@ -1151,6 +1170,7 @@ const App: React.FC = () => {
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
+             currentView === 'cms' ? <AdminCMS settings={state.siteSettings!} onSave={(newSettings) => updateStateAndFirestore('settings', 'site', newSettings, false, p => ({...p, siteSettings: newSettings}))} language={state.language} darkMode={state.darkMode} /> :
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}

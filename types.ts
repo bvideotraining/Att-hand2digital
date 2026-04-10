@@ -60,6 +60,33 @@ export interface CorrectionEntry {
   type: 'name' | 'time';
 }
 
+export interface FeatureBlock {
+  id: string;
+  icon: string;
+  titleAr: string;
+  titleEn: string;
+  descAr: string;
+  descEn: string;
+}
+
+export interface SiteSettings {
+  heroTitleAr: string;
+  heroTitleEn: string;
+  heroSubtitleAr: string;
+  heroSubtitleEn: string;
+  ctaTextAr: string;
+  ctaTextEn: string;
+  features: FeatureBlock[];
+  socialLinks: {
+    facebook: string;
+    twitter: string;
+    linkedin: string;
+    github: string;
+  };
+  menuStyle: 'classic' | 'modern';
+  geminiApiKey?: string;
+}
+
 export interface AppState {
   users: User[];
   files: AttendanceFile[];
@@ -71,4 +98,5 @@ export interface AppState {
   isDatabaseLoaded: boolean;
   storageMode?: 'local' | 'firebase';
   connectedFileName?: string;
+  siteSettings?: SiteSettings;
 }
