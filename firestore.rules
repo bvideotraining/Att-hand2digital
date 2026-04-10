@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: app_data
+// Document ID: {userId} (Firebase Auth UID)
+// Fields:
+//   - users: list (required) - Local user accounts
+//   - files: list (required) - Attendance records
+//   - nameDictionary: list (required) - Employee names
+//   - correctionHistory: list (required) - AI learning data
+//   - visualReferences: list (required) - Digit samples
+//   - updatedAt: string (required) - ISO timestamp
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidAppData(data) {
+      return data.keys().hasAll(['users', 'files', 'nameDictionary', 'correctionHistory', 'visualReferences', 'updatedAt']) &&
+             data.users is string &&
+             data.files is string &&
+             data.nameDictionary is string &&
+             data.correctionHistory is string &&
+             data.visualReferences is string &&
+             data.updatedAt is string;
+    }
+
+    // Rules for the new subcollection structure
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Backward compatibility for migration
+    match /app_data/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

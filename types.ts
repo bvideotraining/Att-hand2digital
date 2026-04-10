@@ -48,17 +48,27 @@ export interface AttendanceFile {
   upload_date: string;
   status: FileStatus;
   year: number;
+  startDate?: string;
+  endDate?: string;
   data?: ExtractionResult;
   previewUrl?: string;
+}
+
+export interface CorrectionEntry {
+  original: string;
+  corrected: string;
+  type: 'name' | 'time';
 }
 
 export interface AppState {
   users: User[];
   files: AttendanceFile[];
   nameDictionary: string[];
+  correctionHistory: CorrectionEntry[];
   visualReferences: VisualReference[];
   language: 'ar' | 'en';
   darkMode: boolean;
   isDatabaseLoaded: boolean;
+  storageMode?: 'local' | 'firebase';
   connectedFileName?: string;
 }

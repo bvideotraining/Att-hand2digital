@@ -48,28 +48,23 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
         <thead className={`${darkMode ? 'bg-gray-800' : 'bg-gray-100'} text-xs uppercase font-bold`}>
           <tr>
             <th className="px-6 py-4 sticky right-0 bg-inherit border-l shadow-sm z-10 min-w-[200px]">{t.employeeName}</th>
-            {headerDates.map((date, idx) => (
-              <React.Fragment key={date}>
-                <th 
-                  className="px-6 py-4 border-l text-center bg-gray-50/50" 
-                  colSpan={idx === 0 ? 1 : 2}
-                >
-                  {date}
-                </th>
-              </React.Fragment>
+            {headerDates.map((date) => (
+              <th 
+                key={date}
+                className="px-6 py-4 border-l text-center bg-gray-50/50" 
+                colSpan={2}
+              >
+                {date}
+              </th>
             ))}
           </tr>
           <tr className="border-t border-gray-300">
             <th className="px-6 py-2 sticky right-0 bg-inherit border-l shadow-sm z-10"></th>
-            {headerDates.map((date, idx) => (
-              idx === 0 ? (
-                <th key={`${date}-sub-single`} className="px-2 py-2 border-l text-center min-w-[120px]">{t.checkIn}</th>
-              ) : (
-                <React.Fragment key={`${date}-sub`}>
-                  <th className="px-2 py-2 border-l text-center min-w-[100px]">{t.checkIn}</th>
-                  <th className="px-2 py-2 border-l text-center min-w-[100px]">{t.checkOut}</th>
-                </React.Fragment>
-              )
+            {headerDates.map((date) => (
+              <React.Fragment key={`${date}-sub`}>
+                <th className="px-2 py-2 border-l text-center min-w-[100px]">{t.checkIn}</th>
+                <th className="px-2 py-2 border-l text-center min-w-[100px]">{t.checkOut}</th>
+              </React.Fragment>
             ))}
           </tr>
         </thead>
@@ -84,24 +79,8 @@ const AttendanceTable: React.FC<AttendanceTableProps> = ({ data, language, darkM
                   className={`w-full p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 font-medium ${getConfidenceColor(emp.employee_name?.confidence || 0, emp.employee_name?.value)}`}
                 />
               </td>
-              {headerDates.map((date, dateIdx) => {
+              {headerDates.map((date) => {
                 const record = emp.records?.find(r => r.date === date);
-                if (dateIdx === 0) {
-                  return (
-                    <td key={`${empIdx}-${date}-single`} className="px-2 py-3 border-l text-center relative">
-                      <input
-                        type="text"
-                        value={record?.check_in?.value || ''}
-                        onChange={(e) => handleCellChange(empIdx, date, 'check_in', e.target.value)}
-                        className={`w-full text-center p-1 rounded border-none bg-transparent focus:ring-2 focus:ring-blue-500 ${getConfidenceColor(record?.check_in?.confidence || 0, record?.check_in?.value)}`}
-                        placeholder="--"
-                      />
-                      {record?.check_in?.note?.value && (
-                        <div className="text-[9px] text-blue-600 font-bold mt-0.5 opacity-80">{record.check_in.note.value}</div>
-                      )}
-                    </td>
-                  );
-                }
                 return (
                   <React.Fragment key={`${empIdx}-${date}`}>
                     <td className="px-2 py-3 border-l text-center">

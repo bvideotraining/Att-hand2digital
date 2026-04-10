@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "AppData": {
+      "title": "Application Data",
+      "description": "Root document for a user's application state",
+      "type": "object",
+      "properties": {
+        "users": {
+          "type": "array",
+          "description": "List of users for local authentication"
+        },
+        "files": {
+          "type": "array",
+          "description": "List of uploaded attendance files and their extraction results"
+        },
+        "nameDictionary": {
+          "type": "array",
+          "description": "Dictionary of employee names for OCR improvement"
+        },
+        "correctionHistory": {
+          "type": "array",
+          "description": "History of manual corrections for AI learning"
+        },
+        "visualReferences": {
+          "type": "array",
+          "description": "Visual samples of handwritten digits"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last sync timestamp"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}/files/{fileId}": {
+      "schema": "AttendanceFile",
+      "description": "Individual attendance files"
+    },
+    "/users/{userId}/workspace_users/{userId}": {
+      "schema": "User",
+      "description": "Workspace users"
+    },
+    "/users/{userId}/nameDictionary/{nameId}": {
+      "schema": "DictionaryEntry",
+      "description": "Employee name dictionary entries"
+    },
+    "/users/{userId}/visualReferences/{sampleId}": {
+      "schema": "VisualSample",
+      "description": "Handwritten digit samples"
+    },
+    "/users/{userId}/correctionHistory/{correctionId}": {
+      "schema": "Correction",
+      "description": "AI correction history"
+    }
+  }
+}
