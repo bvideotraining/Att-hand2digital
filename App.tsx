@@ -5,11 +5,37 @@ import { User, AttendanceFile, FileStatus, ExtractionResult, AppState, Role, Vis
 import { TRANSLATIONS } from './constants';
 import Layout from './components/Layout';
 import AttendanceTable from './components/AttendanceTable';
+import HomePage from './components/HomePage';
 import { extractAttendanceData } from './services/geminiService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { 
+  FileText, 
+  Globe, 
+  Moon, 
+  Sun, 
+  AlertTriangle, 
+  FileCheck, 
+  Loader2, 
+  HardDrive, 
+  Plus, 
+  CheckCircle, 
+  Cloud, 
+  LogIn, 
+  UserPlus, 
+  ArrowLeft, 
+  ArrowRight,
+  Eye,
+  Trash2,
+  Save,
+  FileSpreadsheet,
+  Info,
+  Lightbulb,
+  Image as ImageIcon,
+  Upload
+} from 'lucide-react';
 
 // --- Error Handling for Firestore ---
 enum OperationType {
@@ -81,40 +107,139 @@ const useTranslation = (lang: string) => {
 
 const VisualDictionaryPage = ({ samples = [], onAdd, onDelete, language, darkMode }: any) => {
   const t = useTranslation(language);
-  const [digit, setDigit] = useState('');
+  const [digit, setDigit] = useState('0');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async () => {
+    try {
+      setIsCapturing(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setIsCapturing(false);
+    }
+  };
+
+  const capture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+        const imageBase64 = canvasRef.current.toDataURL('image/jpeg');
+        onAdd(digit, imageBase64);
+        
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        setIsCapturing(false);
+      }
+    }
+  };
+
   const handleFileChange = (e: any) => {
     const file = e.target.files?.[0];
     if (file && digit) {
       const reader = new FileReader();
-      reader.onload = () => { onAdd(digit, reader.result as string); setDigit(''); };
+      reader.onload = () => { onAdd(digit, reader.result as string); setDigit('0'); };
       reader.readAsDataURL(file);
     }
   };
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div><h2 className="text-2xl font-bold">{t.visualDictionary}</h2><p className="text-gray-500">{t.visualDictionarySubtitle}</p></div>
-      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-2xl shadow-sm border space-y-6`}>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium mb-1">{t.digitValue}</label>
-            <input type="text" value={digit} onChange={(e) => setDigit(e.target.value)} placeholder="e.g. 5" className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`} />
-          </div>
-          <label className={`cursor-pointer ${!digit ? 'opacity-50 pointer-events-none' : ''} bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold transition shadow-md inline-flex items-center gap-2`}>
-            <i className="fas fa-plus"></i>{t.addSample}
-            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={!digit} />
-          </label>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">{t.visualDictionary}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.visualSubtitle || 'Add visual references for handwritten digits'}</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
-          {samples?.map((sample: any) => (
-            <div key={sample.id} className="relative group animate-in zoom-in duration-200">
-              <div className={`aspect-square rounded-xl border overflow-hidden ${darkMode ? 'border-gray-700' : 'border-gray-200'} bg-gray-50 flex items-center justify-center p-2`}>
-                <img src={sample.imageBase64} alt={`Ref ${sample.digit}`} className="max-w-full max-h-full object-contain" />
-                <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-bl-lg font-bold">{sample.digit}</div>
-              </div>
-              <button onClick={() => onDelete(sample.id)} className="absolute -top-2 -left-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs shadow-md opacity-0 group-hover:opacity-100 transition"><i className="fas fa-times"></i></button>
+      </div>
+
+      <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+        {!isCapturing ? (
+          <div className="text-center py-12">
+            <div className="bg-blue-50 dark:bg-blue-900/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
+              <ImageIcon className="w-10 h-10" />
             </div>
-          ))}
-          {(!samples || samples.length === 0) && <div className="col-span-full py-10 text-center text-gray-400">{t.noSamples}</div>}
+            <h3 className="text-xl font-bold mb-4">{t.addVisualSample}</h3>
+            <div className="flex items-center justify-center gap-4 mb-8">
+              <label className="font-bold">{t.selectDigit}:</label>
+              <select 
+                value={digit} 
+                onChange={(e) => setDigit(e.target.value)}
+                className={`px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+              >
+                {['0','1','2','3','4','5','6','7','8','9',':','/','-','.'].map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="flex justify-center gap-4">
+              <button 
+                onClick={startCamera}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold transition shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                {t.startCamera}
+              </button>
+              <label className={`cursor-pointer ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} px-8 py-4 rounded-2xl font-bold transition flex items-center justify-center gap-2`}>
+                <Upload className="w-5 h-5" />
+                {t.uploadImage}
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="relative rounded-3xl overflow-hidden border-4 border-blue-600 shadow-2xl max-w-md mx-auto aspect-video bg-black">
+              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="absolute inset-0 border-2 border-white/30 pointer-events-none"></div>
+            </div>
+            <div className="flex justify-center gap-4">
+              <button 
+                onClick={capture}
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-bold transition shadow-xl shadow-green-500/20 flex items-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" />
+                {t.capture}
+              </button>
+              <button 
+                onClick={() => {
+                  if (videoRef.current?.srcObject) {
+                    (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+                  }
+                  setIsCapturing(false);
+                }}
+                className={`px-8 py-4 rounded-2xl font-bold transition ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        )}
+        <canvas ref={canvasRef} className="hidden" />
+
+        <div className="mt-12">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">{t.existingSamples} ({samples.length})</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+            {samples.map((sample: VisualReference) => (
+              <div key={sample.id} className={`group relative rounded-2xl border overflow-hidden transition-all hover:shadow-lg ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                <img src={sample.imageBase64} className="w-full h-24 object-cover" alt={`Digit ${sample.digit}`} />
+                <div className="absolute top-1 left-1 bg-blue-600 text-white w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shadow-md">
+                  {sample.digit}
+                </div>
+                <button 
+                  onClick={() => onDelete(sample.id)}
+                  className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-md"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -123,39 +248,133 @@ const VisualDictionaryPage = ({ samples = [], onAdd, onDelete, language, darkMod
 
 const UserManagementPage = ({ users = [], onAdd, onUpdate, onDelete, language, darkMode }: any) => {
   const t = useTranslation(language);
-  const [formData, setFormData] = useState({ id: '', name: '', email: '', password: '', role: 'HR User' as Role });
-  const [isEditing, setIsEditing] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState<Partial<User>>({ name: '', email: '', role: 'HR User' });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name && formData.email && formData.password) {
-      if (isEditing) onUpdate(formData); else onAdd({ id: Math.random().toString(36).substr(2, 9), ...formData });
-      setFormData({ id: '', name: '', email: '', password: '', role: 'HR User' });
-      setIsEditing(false);
+    if (editingUser) {
+      onUpdate({ ...editingUser, ...formData });
+      setEditingUser(null);
+    } else {
+      onAdd({ ...formData, id: Math.random().toString(36).substr(2, 9) });
+      setIsAdding(false);
     }
+    setFormData({ name: '', email: '', role: 'HR User' });
   };
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div><h2 className="text-2xl font-bold">{t.userManagement}</h2><p className="text-gray-500">{t.manageUsersSubtitle}</p></div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-2xl shadow-sm border col-span-1 h-fit`}>
-          <h3 className="font-bold mb-4">{isEditing ? t.editUser : t.addUser}</h3>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">{t.userManagement}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.usersSubtitle || 'Manage system users and their permissions'}</p>
+        </div>
+        {!isAdding && !editingUser && (
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+          >
+            <UserPlus className="w-5 h-5" />
+            {t.addUser}
+          </button>
+        )}
+      </div>
+
+      {(isAdding || editingUser) && (
+        <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-xl animate-in slide-in-from-top-4 duration-300`}>
+          <h3 className="text-xl font-bold mb-6">{editingUser ? t.editUser : t.addUser}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div><label className="block text-sm font-medium mb-1">{t.userName}</label><input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`} /></div>
-            <div><label className="block text-sm font-medium mb-1">{t.email}</label><input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`} /></div>
-            <div><label className="block text-sm font-medium mb-1">{t.password}</label><input required type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`} /></div>
-            <div><label className="block text-sm font-medium mb-1">{t.role}</label><select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value as Role})} className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`}><option value="HR User">{t.hrUser}</option><option value="Admin">{t.admin}</option></select></div>
-            <div className="flex gap-2">
-              <button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">{isEditing ? t.saveChanges : t.addUser}</button>
-              {isEditing && <button type="button" onClick={() => { setIsEditing(false); setFormData({ id: '', name: '', email: '', password: '', role: 'HR User' }); }} className="bg-gray-200 text-gray-700 px-4 rounded-xl font-bold">{t.cancel}</button>}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.name}</label>
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.email}</label>
+                <input 
+                  type="email" 
+                  value={formData.email} 
+                  onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.role}</label>
+                <select 
+                  value={formData.role} 
+                  onChange={(e) => setFormData({...formData, role: e.target.value as Role})} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                >
+                  <option value="Admin">{t.admin}</option>
+                  <option value="HR User">{t.hrUser}</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                type="button" 
+                onClick={() => { setIsAdding(false); setEditingUser(null); }}
+                className={`px-6 py-3 rounded-xl font-bold transition ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                {t.cancel}
+              </button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20">
+                {editingUser ? t.update : t.save}
+              </button>
             </div>
           </form>
         </div>
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm border col-span-2 overflow-hidden`}>
-          <table className="w-full text-right"><thead className={`${darkMode ? 'bg-gray-750' : 'bg-gray-50'} border-b`}><tr><th className="px-6 py-4">{t.userName}</th><th className="px-6 py-4">{t.email}</th><th className="px-6 py-4">{t.role}</th><th className="px-6 py-4 w-28">{t.actions}</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{users?.map((u: any) => (<tr key={u.id} className="animate-in fade-in duration-300"><td className="px-6 py-4 font-medium">{u.name}</td><td className="px-6 py-4 text-gray-500">{u.email}</td><td className="px-6 py-4"><span className={`px-2 py-1 rounded-lg text-xs font-bold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{t[u.role === 'Admin' ? 'admin' : 'hrUser']}</span></td><td className="px-6 py-4 flex gap-2">
-              <button onClick={() => { setFormData({...u, password: u.password || ''}); setIsEditing(true); }} className="text-blue-500 hover:text-blue-700 p-2"><i className="fas fa-edit"></i></button>
-              <button onClick={() => onDelete(u.id)} className="text-red-500 hover:text-red-700 p-2"><i className="fas fa-trash-alt"></i></button>
-            </td></tr>))}</tbody>
+      )}
+
+      <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className={`${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.name}</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.email}</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.role}</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-right">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-gray-800">
+              {users.map((u: User) => (
+                <tr key={u.id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
+                  <td className="px-6 py-4 font-bold">{u.name}</td>
+                  <td className="px-6 py-4 text-gray-500">{u.email}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                      {t[u.role === 'Admin' ? 'admin' : 'hrUser']}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => { setEditingUser(u); setFormData(u); }}
+                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-800 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => onDelete(u.id)}
+                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </div>
@@ -176,9 +395,12 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
   };
   
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div><h2 className="text-2xl font-bold">{t.dashboard}</h2><p className="text-gray-500">{t.subtitle}</p></div>
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">{t.dashboard}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           {storageMode === 'firebase' && (
             <button 
@@ -186,11 +408,11 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
               className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-3 rounded-xl font-bold transition shadow-sm inline-flex items-center gap-2"
               title={t.importToCloudHelp}
             >
-              <i className="fas fa-cloud-upload-alt"></i>
+              <Cloud className="w-5 h-5" />
               <span className="hidden sm:inline">{t.importToCloud}</span>
             </button>
           )}
-          <div className="flex flex-wrap items-center gap-4 bg-white/50 p-2 rounded-2xl border border-gray-100">
+          <div className={`flex flex-wrap items-center gap-4 p-2 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
             <div className="flex items-center gap-2">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.selectYear}</label>
               <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none`}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
@@ -204,47 +426,85 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
               <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} text-sm focus:ring-2 focus:ring-blue-500 outline-none`} />
             </div>
           </div>
-          <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg inline-flex items-center gap-2"><i className="fas fa-plus"></i>{t.upload}<input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} /></label>
+          <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 inline-flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            {t.upload}
+            <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+          </label>
         </div>
       </div>
-      <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center gap-3 text-blue-800 text-sm">
-        <i className="fas fa-lightbulb text-blue-500"></i>
+      <div className={`p-4 rounded-2xl flex items-center gap-3 text-sm ${darkMode ? 'bg-blue-900/20 border-blue-800/30 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
+        <Lightbulb className="w-5 h-5 text-blue-500" />
         <p>{t.dateRangeHelp}</p>
       </div>
-      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm border overflow-hidden`}>
-        <table className="w-full text-right"><thead className={`${darkMode ? 'bg-gray-750' : 'bg-gray-50'} border-b`}><tr><th className="px-6 py-4">{t.title}</th><th className="px-6 py-4">{t.titleWithYear}</th><th className="px-6 py-4">{t.status}</th><th className="px-6 py-4">{t.date}</th><th className="px-6 py-4">{t.actions}</th></tr></thead>
-          <tbody className="divide-y divide-gray-100">{(!files || files.length === 0) ? (<tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400">{t.noFiles}</td></tr>) : files.map((file: any) => (
-            <tr key={file.id} className="hover:bg-gray-50 transition-colors animate-in fade-in duration-300">
-              <td className="px-6 py-4 font-medium">{file.name}</td>
-              <td className="px-6 py-4 font-bold text-blue-600">{file.year}</td>
-              <td className="px-6 py-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${file.status === FileStatus.Processing ? 'bg-blue-100 text-blue-700' : file.status === FileStatus.Completed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {file.status === FileStatus.Processing && <i className="fas fa-spinner fa-spin"></i>}{t[file.status.toLowerCase()]}
-                </span>
-              </td>
-              <td className="px-6 py-4 text-gray-500 text-sm">{new Date(file.upload_date).toLocaleDateString()}</td>
-              <td className="px-6 py-4">
-                <div className="flex gap-2">
-                  <button onClick={() => onFileSelect(file)} disabled={file.status !== FileStatus.Completed} className="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition"><i className="fas fa-eye"></i></button>
+
+      {(!files || files.length === 0) ? (
+        <div className={`p-16 text-center rounded-3xl border-2 border-dashed ${darkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-white border-gray-200'}`}>
+          <div className="bg-gray-100 dark:bg-gray-800 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <FileText className="w-10 h-10 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">{t.noFiles}</h3>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">{t.noFilesMsg}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {files.map((file: any) => (
+            <div 
+              key={file.id} 
+              className={`group rounded-3xl border transition-all duration-300 hover:shadow-xl ${darkMode ? 'bg-gray-900 border-gray-800 hover:border-blue-500/50' : 'bg-white border-gray-100 hover:border-blue-200'}`}
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className={`p-3 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-blue-50'} text-blue-600`}>
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => onDelete(file.id)}
+                      className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <h3 className="font-bold text-lg truncate mb-1" title={file.name}>{file.name}</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-blue-600 font-bold text-sm">{file.year}</span>
+                  <span className="text-gray-300 dark:text-gray-700">•</span>
+                  <span className="text-xs text-gray-500">{new Date(file.upload_date).toLocaleDateString()}</span>
+                </div>
+                
+                <div className="flex items-center justify-between mt-6">
+                  <div className="flex items-center gap-2">
+                    {file.status === FileStatus.Completed ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
+                        <CheckCircle className="w-3 h-3" /> {t.completed}
+                      </span>
+                    ) : file.status === FileStatus.Processing ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full">
+                        <Loader2 className="animate-spin w-3 h-3" /> {t.processing}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+                        <AlertTriangle className="w-3 h-3" /> {t.failed}
+                      </span>
+                    )}
+                  </div>
+                  
                   <button 
-                    onClick={(e) => { 
-                      e.preventDefault();
-                      e.stopPropagation(); 
-                      if (window.confirm(t.confirmDelete || 'Delete this record?')) {
-                        onDelete(file.id); 
-                      }
-                    }} 
-                    className="text-red-500 hover:bg-red-100 p-2 rounded-lg transition"
-                    title={t.deleteFile}
+                    onClick={() => onFileSelect(file)}
+                    className={`flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl transition ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
                   >
-                    <i className="fas fa-trash-alt"></i>
+                    <Eye className="w-4 h-4" />
+                    {t.view}
                   </button>
                 </div>
-              </td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -264,8 +524,10 @@ const App: React.FC = () => {
     }
     return INITIAL_STATE;
   });
+  const t = useTranslation(state.language);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<'dashboard' | 'review' | 'dictionary' | 'users' | 'samples'>('dashboard');
+  const [showLanding, setShowLanding] = useState(true);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -834,28 +1096,44 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div dir={state.language === 'ar' ? 'rtl' : 'ltr'} className={state.language === 'ar' ? 'rtl-layout' : 'ltr-layout'}>
+      <div dir={state.language === 'ar' ? 'rtl' : 'ltr'} className={`${state.language === 'ar' ? 'rtl-layout' : 'ltr-layout'} ${state.darkMode ? 'dark' : ''}`}>
         <input ref={legacyFileInputRef} type="file" className="hidden" accept=".json" onChange={handleLegacyFileSelect} />
         
         {!isAuthReady ? (
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className={`min-h-screen flex items-center justify-center ${state.darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+            <Loader2 className="animate-spin h-12 w-12 text-blue-600" />
           </div>
         ) : !currentUser ? (
-          <LoginPage 
-            onLogin={handleFormLogin} 
-            onGoogleLogin={handleGoogleLogin}
-            onFirebaseLogin={handleFirebaseEmailLogin}
-            onFirebaseSignUp={handleFirebaseEmailSignUp}
-            language={state.language} 
-            isDatabaseLoaded={state.isDatabaseLoaded} 
-            fileName={state.connectedFileName} 
-            onConnect={handleConnectFile} 
-            onCreate={handleCreateNewFile} 
-            error={loginError} 
-            onCloseError={() => setLoginError(false)} 
-            isConnecting={isConnecting}
-          />
+          showLanding ? (
+            <HomePage 
+              t={t} 
+              language={state.language} 
+              darkMode={state.darkMode} 
+              onGetStarted={() => setShowLanding(false)} 
+              onSignIn={() => setShowLanding(false)}
+              onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
+              onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+            />
+          ) : (
+            <LoginPage 
+              onLogin={handleFormLogin} 
+              onGoogleLogin={handleGoogleLogin}
+              onFirebaseLogin={handleFirebaseEmailLogin}
+              onFirebaseSignUp={handleFirebaseEmailSignUp}
+              language={state.language} 
+              darkMode={state.darkMode}
+              onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
+              onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+              isDatabaseLoaded={state.isDatabaseLoaded} 
+              fileName={state.connectedFileName} 
+              onConnect={handleConnectFile} 
+              onCreate={handleCreateNewFile} 
+              error={loginError} 
+              onCloseError={() => setLoginError(false)} 
+              isConnecting={isConnecting}
+              onBackToHome={() => setShowLanding(true)}
+            />
+          )
         ) : (
           <Layout 
             user={currentUser} 
@@ -881,11 +1159,29 @@ const App: React.FC = () => {
   );
 };
 
-const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, language, isDatabaseLoaded, fileName, onConnect, onCreate, error, onCloseError, isConnecting }: any) => {
+const LoginPage = ({ 
+  onLogin, 
+  onGoogleLogin, 
+  onFirebaseLogin, 
+  onFirebaseSignUp, 
+  language, 
+  darkMode,
+  onLanguageToggle,
+  onThemeToggle,
+  isDatabaseLoaded, 
+  fileName, 
+  onConnect, 
+  onCreate, 
+  error, 
+  onCloseError, 
+  isConnecting,
+  onBackToHome
+}: any) => {
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
   const [mode, setMode] = useState<'local' | 'firebase'>('local');
   const t = useTranslation(language);
+  const isRtl = language === 'ar';
 
   const handleFormLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -893,33 +1189,54 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden relative">
+    <div className={`min-h-screen flex items-center justify-center p-6 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      <div className={`max-w-md w-full rounded-3xl shadow-2xl border overflow-hidden relative ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+        {/* Header Controls */}
+        <div className="absolute top-4 right-4 left-4 flex justify-between items-center z-10">
+          <button onClick={onBackToHome} className={`p-2 rounded-full transition ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`} title={t.home}>
+            {isRtl ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onLanguageToggle} className={`p-2 rounded-full transition ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`} title={t.switchLanguage}>
+              <Globe className="w-5 h-5" />
+            </button>
+            <button onClick={onThemeToggle} className={`p-2 rounded-full transition ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`} title={darkMode ? t.lightMode : t.darkMode}>
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
         {error && (
-          <div className="absolute inset-0 z-50 bg-white/95 flex items-center justify-center p-8 text-center animate-in fade-in duration-300">
+          <div className={`absolute inset-0 z-50 flex items-center justify-center p-8 text-center animate-in fade-in duration-300 ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'}`}>
             <div className="space-y-6">
-              <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center text-red-600 mx-auto"><i className="fas fa-exclamation-triangle text-2xl"></i></div>
-              <h3 className="text-xl font-bold text-gray-900">{t.invalidLogin}</h3><p className="text-gray-600">{t.invalidLoginMsg}</p>
+              <div className="bg-red-100 dark:bg-red-900/30 w-16 h-16 rounded-full flex items-center justify-center text-red-600 dark:text-red-400 mx-auto">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.invalidLogin}</h3>
+              <p className="text-gray-500 dark:text-gray-400">{t.invalidLoginMsg}</p>
               <button onClick={onCloseError} className="w-full bg-red-600 text-white font-bold py-3 rounded-xl transition shadow-md hover:bg-red-700">{t.cancel}</button>
             </div>
           </div>
         )}
-        <div className="p-8">
+        <div className="p-8 pt-16">
           <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg"><i className="fas fa-file-invoice text-2xl"></i></div>
-            <h2 className="text-2xl font-bold">{t.title}</h2><p className="text-gray-500 mt-2">{t.subtitle}</p>
+            <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg">
+              <FileText className="w-8 h-8" />
+            </div>
+            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.title}</h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">{t.subtitle}</p>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
+          <div className={`flex p-1 rounded-xl mb-6 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
             <button 
               onClick={() => setMode('local')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${mode === 'local' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${mode === 'local' ? (darkMode ? 'bg-gray-700 text-blue-400 shadow-sm' : 'bg-white shadow-sm text-blue-600') : 'text-gray-500'}`}
             >
               {t.localFile}
             </button>
             <button 
               onClick={() => setMode('firebase')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${mode === 'firebase' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${mode === 'firebase' ? (darkMode ? 'bg-gray-700 text-blue-400 shadow-sm' : 'bg-white shadow-sm text-blue-600') : 'text-gray-500'}`}
             >
               {t.firebaseCloud}
             </button>
@@ -928,30 +1245,30 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
           {mode === 'local' ? (
             !isDatabaseLoaded ? (
               <div className="space-y-4 animate-in fade-in duration-500">
-                <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-sm mb-4">
-                  <i className="fas fa-info-circle mr-2"></i> {t.dbRequired}
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-blue-800 dark:text-blue-300 text-sm mb-4">
+                  <Info className="w-4 h-4 inline mr-2" /> {t.dbRequired}
                 </div>
                 <button 
                   onClick={onConnect} 
                   disabled={isConnecting}
                   className={`w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold transition shadow-lg flex items-center justify-center gap-3 ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {isConnecting ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fas fa-hdd"></i>}
+                  {isConnecting ? <Loader2 className="animate-spin w-5 h-5" /> : <HardDrive className="w-5 h-5" />}
                   {t.importDatabase}
                 </button>
                 <button 
                   onClick={onCreate} 
                   disabled={isConnecting}
-                  className={`w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-4 rounded-xl font-bold transition flex items-center justify-center gap-3 ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full py-4 rounded-xl font-bold transition flex items-center justify-center gap-3 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {isConnecting ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fas fa-plus"></i>}
+                  {isConnecting ? <Loader2 className="animate-spin w-5 h-5" /> : <Plus className="w-5 h-5" />}
                   {t.newDatabase}
                 </button>
               </div>
             ) : (
               <form onSubmit={handleFormLogin} className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-green-100 p-4 rounded-xl text-green-800 text-sm mb-4 flex items-center gap-2">
-                  <i className="fas fa-check-circle"></i><span className="font-bold truncate">{t.dbConnectedSuccess} ({fileName || 'Database'})</span>
+                <div className="bg-green-100 dark:bg-green-900/20 p-4 rounded-xl text-green-800 dark:text-green-300 text-sm mb-4 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" /><span className="font-bold truncate">{t.dbConnectedSuccess} ({fileName || 'Database'})</span>
                 </div>
                 <div className="text-xs text-gray-500 text-center mb-2">{t.localMode}</div>
                 <div>
@@ -961,7 +1278,7 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                     autoComplete="email"
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                     placeholder="admin@system.com" 
                     required
                   />
@@ -973,7 +1290,7 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                     autoComplete="current-password"
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" 
+                    className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                     placeholder="••••••••" 
                     required
                   />
@@ -984,16 +1301,16 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                 >
                   {t.login}
                 </button>
-                <div className="pt-6 border-t mt-4 grid grid-cols-2 gap-3">
-                  <button type="button" onClick={onConnect} className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold transition text-xs truncate px-1"><i className="fas fa-sync-alt mr-1"></i>{t.switchDb}</button>
-                  <button type="button" onClick={onCreate} className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-xl font-bold transition text-xs truncate px-1"><i className="fas fa-plus mr-1"></i>{t.newDatabase}</button>
+                <div className="pt-6 border-t dark:border-gray-800 mt-4 grid grid-cols-2 gap-3">
+                  <button type="button" onClick={onConnect} className={`py-2.5 rounded-xl font-bold transition text-xs truncate px-1 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}><i className="fas fa-sync-alt mr-1"></i>{t.switchDb}</button>
+                  <button type="button" onClick={onCreate} className={`py-2.5 rounded-xl font-bold transition text-xs truncate px-1 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}><i className="fas fa-plus mr-1"></i>{t.newDatabase}</button>
                 </div>
               </form>
             )
           ) : (
             <div className="space-y-4 animate-in fade-in duration-500">
-              <div className="bg-blue-50 p-4 rounded-xl text-blue-800 text-sm mb-4">
-                <i className="fas fa-cloud mr-2"></i> {t.firebaseCloud}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-blue-800 dark:text-blue-300 text-sm mb-4">
+                <Cloud className="w-4 h-4 inline mr-2" /> {t.firebaseCloud}
               </div>
               
               <div>
@@ -1002,7 +1319,7 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                   type="email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                   placeholder="user@example.com" 
                 />
               </div>
@@ -1012,7 +1329,7 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none" 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                   placeholder="••••••••" 
                 />
               </div>
@@ -1021,32 +1338,34 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
                   type="button"
                   onClick={() => onFirebaseLogin(email, password)}
                   disabled={isConnecting || !email || !password}
-                  className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center ${isConnecting ? 'opacity-50' : ''}`}
+                  className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${isConnecting ? 'opacity-50' : ''}`}
                 >
+                  <LogIn className="w-4 h-4" />
                   {t.login}
                 </button>
                 <button 
                   type="button"
                   onClick={() => onFirebaseSignUp(email, password)}
                   disabled={isConnecting || !email || !password}
-                  className={`flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition flex items-center justify-center ${isConnecting ? 'opacity-50' : ''}`}
+                  className={`flex-1 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} ${isConnecting ? 'opacity-50' : ''}`}
                 >
+                  <UserPlus className="w-4 h-4" />
                   {t.signUp || 'Sign Up'}
                 </button>
               </div>
 
               <div className="relative flex items-center py-2">
-                <div className="flex-grow border-t border-gray-200"></div>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-800"></div>
                 <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold">{t.or || 'OR'}</span>
-                <div className="flex-grow border-t border-gray-200"></div>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-800"></div>
               </div>
 
               <button 
                 onClick={onGoogleLogin}
                 disabled={isConnecting}
-                className={`w-full bg-white border-2 border-gray-200 hover:border-blue-500 text-gray-700 py-3 rounded-xl font-bold transition flex items-center justify-center gap-3 ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full border-2 hover:border-blue-500 py-3 rounded-xl font-bold transition flex items-center justify-center gap-3 ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-300' : 'bg-white border-gray-200 text-gray-700'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isConnecting ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fab fa-google text-red-500"></i>}
+                {isConnecting ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />}
                 {t.signInWithGoogle}
               </button>
             </div>
@@ -1060,10 +1379,38 @@ const LoginPage = ({ onLogin, onGoogleLogin, onFirebaseLogin, onFirebaseSignUp, 
 const ReviewPage = ({ file, language, darkMode, onSave, onBack }: any) => {
   const [data, setData] = useState(file.data || null); 
   const t = useTranslation(language); 
+  const isRtl = language === 'ar';
+
   if (!data) return null;
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div className="flex items-center gap-4"><button onClick={onBack} className="p-2 hover:bg-gray-200 rounded-lg transition"><i className={`fas fa-arrow-${language === 'ar' ? 'right' : 'left'}`}></i></button><div><h2 className="text-2xl font-bold">{t.reviewEdit}</h2><p className="text-gray-500 font-medium">{file.name} ({file.year})</p></div></div><div className="flex gap-3"><button onClick={() => exportToExcel(data, file.name.split('.')[0])} className="bg-green-600 text-white px-5 py-2.5 rounded-xl font-bold transition shadow-sm hover:bg-green-700"><i className="fas fa-file-excel mr-2"></i>{t.downloadExcel}</button><button onClick={() => onSave(file.id, data)} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold transition shadow-sm hover:bg-blue-700"><i className="fas fa-save mr-2"></i>{t.saveChanges}</button></div></div>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className={`p-2 rounded-xl transition ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
+            {isRtl ? <ArrowRight className="w-6 h-6" /> : <ArrowLeft className="w-6 h-6" />}
+          </button>
+          <div>
+            <h2 className="text-3xl font-extrabold tracking-tight">{t.reviewEdit}</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-bold">{file.name} ({file.year})</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => exportToExcel(data, file.name.split('.')[0])} 
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-green-500/20 flex items-center gap-2"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            {t.downloadExcel}
+          </button>
+          <button 
+            onClick={() => onSave(file.id, data)} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+          >
+            <Save className="w-5 h-5" />
+            {t.saveChanges}
+          </button>
+        </div>
+      </div>
       <AttendanceTable data={data} language={language} darkMode={darkMode} onUpdate={setData} />
     </div>
   );
@@ -1072,14 +1419,77 @@ const ReviewPage = ({ file, language, darkMode, onSave, onBack }: any) => {
 const DictionaryPage = ({ names = [], onAdd, onDelete, language, darkMode }: any) => {
   const [newName, setNewName] = useState(''); 
   const t = useTranslation(language);
+  const isRtl = language === 'ar';
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div><h2 className="text-2xl font-bold">{t.manageDictionary}</h2><p className="text-gray-500">{t.dictionarySubtitle}</p></div>
-      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-2xl shadow-sm border space-y-4`}>
-        <div className="flex gap-3"><input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t.namePlaceholder} className={`flex-1 px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'border-gray-300'}`} /><button onClick={() => { if(newName) { onAdd(newName); setNewName(''); } }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">{t.addName}</button></div>
-        <div className="border rounded-xl overflow-hidden"><table className="w-full text-right"><thead className={`${darkMode ? 'bg-gray-750' : 'bg-gray-50'} border-b`}><tr><th className="px-6 py-3">{t.employeeName}</th><th className="px-6 py-3 w-20">{t.actions}</th></tr></thead>
-          <tbody className="divide-y divide-gray-100">{names.map((n:any) => (<tr key={n} className="hover:bg-gray-50 transition-colors"><td className="px-6 py-3">{n}</td><td className="px-6 py-3"><button onClick={() => onDelete(n)} className="text-red-500 hover:text-red-700 transition-colors"><i className="fas fa-trash-alt"></i></button></td></tr>))}</tbody>
-        </table></div>
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
+      <div>
+        <h2 className="text-3xl font-extrabold tracking-tight">{t.manageDictionary}</h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{t.dictionarySubtitle}</p>
+      </div>
+
+      <div className={`p-8 rounded-3xl border shadow-sm space-y-8 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+        <div className="flex gap-3">
+          <input 
+            type="text" 
+            value={newName} 
+            onChange={(e) => setNewName(e.target.value)} 
+            placeholder={t.namePlaceholder} 
+            className={`flex-1 px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`} 
+          />
+          <button 
+            onClick={() => { if(newName) { onAdd(newName); setNewName(''); } }} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            {t.addName}
+          </button>
+        </div>
+
+        <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+          <table className="w-full text-left border-collapse">
+            <thead className={`${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.employeeName}</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest w-24 text-right">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-gray-800">
+              {names.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="px-6 py-12 text-center text-gray-400 italic">
+                    {t.noNames || 'No names added yet.'}
+                  </td>
+                </tr>
+              ) : (
+                names.map((n:any) => (
+                  <tr key={n} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
+                    <td className="px-6 py-4 font-bold">{n}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => onDelete(n)} 
+                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                        title={t.delete}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-blue-900/20 border-blue-800/30 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'} flex items-start gap-4`}>
+        <div className="bg-blue-600 text-white p-2 rounded-lg flex-shrink-0">
+          <Lightbulb className="w-5 h-5" />
+        </div>
+        <div>
+          <h4 className="font-bold mb-1">{t.proTip || 'Pro Tip'}</h4>
+          <p className="text-sm opacity-90 leading-relaxed">{t.dictionaryTip || 'Adding employee names helps the AI correctly identify handwritten names even if they are slightly unclear.'}</p>
+        </div>
       </div>
     </div>
   );
