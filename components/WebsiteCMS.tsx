@@ -1,0 +1,1225 @@
+import React, { useState, useMemo } from 'react';
+import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
+import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon } from 'lucide-react';
+import { Reorder, motion, AnimatePresence } from 'framer-motion';
+import MediaLibrary from './MediaLibrary';
+import PublicPage from './PublicPage';
+import TemplateSelector, { PAGE_TEMPLATES } from './TemplateSelector';
+import { TRANSLATIONS } from '../constants';
+
+interface WebsiteCMSProps {
+  pages: CmsPage[];
+  menuConfig: CmsMenuConfig;
+  siteSettings: SiteSettings;
+  onSavePages: (pages: CmsPage[]) => void;
+  onSaveMenu: (menu: CmsMenuConfig) => void;
+  onSaveSettings: (settings: SiteSettings) => void;
+  language: string;
+  darkMode: boolean;
+}
+
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings, onSavePages, onSaveMenu, onSaveSettings, language, darkMode }) => {
+  const t = useMemo(() => {
+    const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
+    return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
+  }, [language]);
+
+  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'settings'>('pages');
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
+  const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false);
+  const [mediaLibraryCallback, setMediaLibraryCallback] = useState<((url: string) => void) | null>(null);
+  const [pageToDelete, setPageToDelete] = useState<string | null>(null);
+  const [backlinksPage, setBacklinksPage] = useState<CmsPage | null>(null);
+
+  const openMediaLibrary = (callback: (url: string) => void) => {
+    setMediaLibraryCallback(() => callback);
+    setIsMediaLibraryOpen(true);
+  };
+
+  const editingPage = pages.find(p => p.id === editingPageId);
+
+  const handleAddPage = () => {
+    setIsTemplateSelectorOpen(true);
+  };
+
+  const handleSelectTemplate = (templateId: string | 'blank') => {
+    let newBlocks: CmsBlock[] = [];
+    let title = 'New Page';
+    let slug = '/new-page';
+
+    if (templateId !== 'blank') {
+      const template = PAGE_TEMPLATES.find(t => t.id === templateId);
+      if (template) {
+        // Deep copy blocks to avoid reference issues
+        newBlocks = JSON.parse(JSON.stringify(template.blocks)).map((b: any) => ({
+          ...b,
+          id: Math.random().toString(36).substr(2, 9) // Give blocks unique IDs
+        }));
+        title = template.title;
+        slug = `/${template.id}`;
+        
+        // Ensure unique slug
+        let counter = 1;
+        let baseSlug = slug;
+        while (pages.some(p => p.slug === slug)) {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+    }
+
+    const newPage: CmsPage = {
+      id: Math.random().toString(36).substr(2, 9),
+      title,
+      slug,
+      status: 'draft',
+      inMenu: false,
+      blocks: newBlocks
+    };
+    onSavePages([...pages, newPage]);
+    setEditingPageId(newPage.id);
+    setIsTemplateSelectorOpen(false);
+  };
+
+  const handleDeletePage = (id: string) => {
+    setPageToDelete(id);
+  };
+
+  const confirmDeletePage = () => {
+    if (pageToDelete) {
+      onSavePages(pages.filter(p => p.id !== pageToDelete));
+      setPageToDelete(null);
+    }
+  };
+
+  const getBacklinks = (targetSlug: string) => {
+    const backlinks: { pageTitle: string; pageSlug: string; blockType: string }[] = [];
+    
+    pages.forEach(page => {
+      page.blocks.forEach(block => {
+        let found = false;
+        let blockType = block.type;
+
+        if (block.type === 'hero' && block.buttonLink === targetSlug) found = true;
+        if (block.type === 'cards') {
+          if (block.cards.some((c: any) => c.link === targetSlug)) found = true;
+        }
+        if (block.type === 'footer') {
+          block.columns.forEach(col => {
+            if (col.links.some(l => l.url === targetSlug)) found = true;
+          });
+        }
+        if (block.type === 'richText' && block.content.includes(`href="${targetSlug}"`)) found = true;
+
+        if (found) {
+          backlinks.push({
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            blockType: blockType.charAt(0).toUpperCase() + blockType.slice(1)
+          });
+        }
+      });
+    });
+
+    return backlinks;
+  };
+
+  const handleUpdatePage = (updatedPage: CmsPage) => {
+    onSavePages(pages.map(p => p.id === updatedPage.id ? updatedPage : p));
+  };
+
+  if (editingPageId && editingPage) {
+    return <PageEditor page={editingPage} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />;
+  }
+
+  return (
+    <div className={`space-y-8 animate-in fade-in duration-500 ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">{t.title}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
+        </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setActiveTab('menu')}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'menu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          >
+            <Layout className="w-4 h-4" />
+            {t.menuStyle}
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'settings' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          >
+            <Settings className="w-4 h-4" />
+            {t.settings}
+          </button>
+          <button 
+            onClick={() => setIsMediaLibraryOpen(true)}
+            className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+          >
+            <ImageIcon className="w-4 h-4" />
+            {t.mediaLibrary}
+          </button>
+          <button 
+            onClick={handleAddPage}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            {t.newPage}
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'pages' ? (
+        <div className="space-y-4">
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder={t.searchPages} 
+              className={`w-full max-w-md ${language === 'ar' ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+            />
+            <div className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Reorder.Group axis="y" values={pages} onReorder={onSavePages} className="space-y-3">
+              {pages.map(page => (
+                <Reorder.Item key={page.id} value={page} className={`flex items-center justify-between p-4 rounded-xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} hover:shadow-md transition`}>
+                  <div className="flex items-center gap-4">
+                    <div className="text-gray-400 cursor-grab active:cursor-grabbing">
+                      <GripVertical className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-bold text-lg">{page.title}</h3>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${page.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'}`}>
+                          {page.status === 'published' ? t.published : t.draft}
+                        </span>
+                        {page.inMenu && (
+                          <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            {t.inMenu}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{page.slug} &bull; {page.blocks.length} {t.blocks}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title={t.hideShow}>
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title={t.duplicate}>
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <a href={`#${page.slug}`} target="_blank" rel="noreferrer" className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title={t.viewLive}>
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button onClick={() => setBacklinksPage(page)} className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title={t.linkedPages}>
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditingPageId(page.id)} className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title={t.edit}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    </button>
+                    <button onClick={() => handleDeletePage(page.id)} className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400" title={t.delete}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </Reorder.Item>
+              ))}
+            </Reorder.Group>
+            {pages.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                {t.noPagesFound}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === 'menu' ? (
+        <MenuEditor config={menuConfig} onSave={onSaveMenu} pages={pages} onSavePages={onSavePages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />
+      ) : (
+        <SettingsEditor settings={siteSettings} onSave={onSaveSettings} darkMode={darkMode} t={t} language={language} />
+      )}
+
+      <MediaLibrary 
+        isOpen={isMediaLibraryOpen} 
+        onClose={() => {
+          setIsMediaLibraryOpen(false);
+          setMediaLibraryCallback(null);
+        }} 
+        onSelect={(url) => {
+          if (mediaLibraryCallback) mediaLibraryCallback(url);
+          setIsMediaLibraryOpen(false);
+          setMediaLibraryCallback(null);
+        }}
+        darkMode={darkMode} 
+      />
+
+      <TemplateSelector 
+        isOpen={isTemplateSelectorOpen}
+        onClose={() => setIsTemplateSelectorOpen(false)}
+        onSelect={handleSelectTemplate}
+        language={language}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {pageToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPageToDelete(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10 text-center"
+            >
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">{t.deletePageTitle}</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-8">
+                {t.deletePageConfirm.replace('{title}', pages.find(p => p.id === pageToDelete)?.title || '')}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setPageToDelete(null)}
+                  className="flex-1 py-3 rounded-xl font-bold border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  {t.cancel}
+                </button>
+                <button 
+                  onClick={confirmDeletePage}
+                  className="flex-1 py-3 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition shadow-lg shadow-red-500/20"
+                >
+                  {t.confirmDelete}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Backlinks Modal */}
+      <AnimatePresence>
+        {backlinksPage && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBacklinksPage(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative z-10"
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold">{t.backlinksTitle.replace('{title}', backlinksPage.title)}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t.backlinksSubtitle.replace('{slug}', backlinksPage.slug)}</p>
+                </div>
+                <button onClick={() => setBacklinksPage(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 max-h-[60vh] overflow-y-auto">
+                {getBacklinks(backlinksPage.slug).length > 0 ? (
+                  <div className="space-y-3">
+                    {getBacklinks(backlinksPage.slug).map((link, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                        <div>
+                          <div className="font-bold">{link.pageTitle}</div>
+                          <div className="text-xs text-gray-500">{link.pageSlug}</div>
+                        </div>
+                        <div className="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          {link.blockType} {t.blocks}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <LinkIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    <p>{t.noBacklinks}</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
+                <button 
+                  onClick={() => setBacklinksPage(null)}
+                  className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-lg shadow-blue-500/20"
+                >
+                  {t.close}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Page Editor Subcomponent ---
+
+const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, darkMode, t, language }: { page: CmsPage, menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+  const [localPage, setLocalPage] = useState<CmsPage>(page);
+  const [showBlockMenu, setShowBlockMenu] = useState(false);
+  const [isEditingSlug, setIsEditingSlug] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  const handleSave = () => {
+    onSave(localPage);
+    onBack();
+  };
+
+  const addBlock = (type: BlockType) => {
+    const newBlockBase = { id: Math.random().toString(36).substr(2, 9), type };
+    let newBlock: CmsBlock;
+    
+    switch(type) {
+      case 'hero':
+        newBlock = { ...newBlockBase, type: 'hero', template: 'centered', title: 'New Hero', subtitle: 'Subtitle here', buttonText: 'Click Me', buttonLink: '/' } as HeroBlock;
+        break;
+      case 'richText':
+        newBlock = { ...newBlockBase, type: 'richText', content: '<p>Enter your text here...</p>' } as RichTextBlock;
+        break;
+      case 'cards':
+        newBlock = { ...newBlockBase, type: 'cards', heading: 'Features', columns: 3, cards: [] } as CardsBlock;
+        break;
+      case 'contactForm':
+        newBlock = { ...newBlockBase, type: 'contactForm', title: 'Contact Us', subtitle: 'Send a message', fields: [], formWidth: 'medium', sectionPadding: 'medium', backgroundColor: '#ffffff', submitText: 'Send', submitBgColor: '#2563eb', submitTextColor: '#ffffff', destination: 'firestore' } as FormBlock;
+        break;
+      case 'newsletter':
+        newBlock = { ...newBlockBase, type: 'newsletter', title: 'Subscribe to our Newsletter', subtitle: 'Get the latest updates.', placeholderText: 'Enter your email', buttonText: 'Subscribe', backgroundColor: '#f3f4f6', textColor: '#111827' } as NewsletterBlock;
+        break;
+      case 'footer':
+        newBlock = { ...newBlockBase, type: 'footer', template: 'simple', companyName: 'Company', copyright: '© 2026', description: '', columns: [] } as FooterBlock;
+        break;
+      default: return;
+    }
+
+    setLocalPage(p => ({ ...p, blocks: [...p.blocks, newBlock] }));
+    setShowBlockMenu(false);
+  };
+
+  const updateBlock = (id: string, updates: Partial<CmsBlock>) => {
+    setLocalPage(p => ({
+      ...p,
+      blocks: p.blocks.map(b => b.id === id ? { ...b, ...updates } as CmsBlock : b)
+    }));
+  };
+
+  const removeBlock = (id: string) => {
+    setLocalPage(p => ({ ...p, blocks: p.blocks.filter(b => b.id !== id) }));
+  };
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === localPage.blocks.length - 1)) return;
+    const newBlocks = [...localPage.blocks];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+    setLocalPage(p => ({ ...p, blocks: newBlocks }));
+  };
+
+  if (isPreviewMode) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="sticky top-0 z-50 bg-gray-900 text-white p-4 flex justify-between items-center shadow-md">
+          <div className="flex items-center gap-4">
+            <span className="font-bold">{t.previewMode}</span>
+            <span className="text-sm text-gray-400">{localPage.title}</span>
+          </div>
+          <button onClick={() => setIsPreviewMode(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition flex items-center gap-2">
+            <ArrowLeft className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} /> {t.exitPreview}
+          </button>
+        </div>
+        <PublicPage 
+          page={localPage}
+          pages={[localPage]} 
+          menuConfig={menuConfig} 
+          darkMode={darkMode} 
+          onThemeToggle={() => {}} 
+          onSignIn={() => {}} 
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-6 animate-in fade-in ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 sticky top-20 z-40">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition">
+            <ArrowLeft className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} />
+          </button>
+          <div>
+            <input 
+              type="text" 
+              value={localPage.title}
+              onChange={e => setLocalPage({...localPage, title: e.target.value})}
+              className="text-2xl font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500 transition"
+            />
+            <div className="flex items-center gap-2 mt-1">
+              {isEditingSlug ? (
+                <input
+                  type="text"
+                  value={localPage.slug}
+                  onChange={e => setLocalPage({...localPage, slug: e.target.value})}
+                  onBlur={() => setIsEditingSlug(false)}
+                  onKeyDown={e => e.key === 'Enter' && setIsEditingSlug(false)}
+                  autoFocus
+                  className={`text-sm px-2 py-0.5 rounded border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              ) : (
+                <>
+                  <span className="text-sm text-gray-500">{localPage.slug}</span>
+                  <button onClick={() => setIsEditingSlug(true)} className="text-xs text-blue-600 hover:underline">{t.editUrl}</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsPreviewMode(true)} className="px-4 py-2 rounded-xl font-bold border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center gap-2">
+            <Eye className="w-4 h-4" /> {t.preview}
+          </button>
+          <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+            <Save className="w-4 h-4" /> {t.save}
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-4 pb-32">
+        <Reorder.Group axis="y" values={localPage.blocks} onReorder={(newBlocks) => setLocalPage(p => ({ ...p, blocks: newBlocks }))} className="space-y-4">
+          {localPage.blocks.map((block, index) => (
+            <Reorder.Item key={block.id} value={block}>
+              <BlockEditor 
+                block={block} 
+                index={index} 
+                onUpdate={(updates: any) => updateBlock(block.id, updates)} 
+                onRemove={() => removeBlock(block.id)}
+                onMove={(dir: any) => moveBlock(index, dir)}
+                openMediaLibrary={openMediaLibrary}
+                darkMode={darkMode}
+                t={t}
+              />
+            </Reorder.Item>
+          ))}
+        </Reorder.Group>
+
+        <div className="relative mt-8">
+          {showBlockMenu ? (
+            <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 rounded-2xl shadow-xl border overflow-hidden z-50 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+              <div className="p-2 grid grid-cols-1 gap-1">
+                <button onClick={() => addBlock('hero')} className="flex items-center gap-3 p-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl text-left transition">
+                  <Layout className="w-5 h-5 text-blue-500" /> <span className="font-medium">{t.heroSection}</span>
+                </button>
+                <button onClick={() => addBlock('richText')} className="flex items-center gap-3 p-3 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl text-left transition">
+                  <Type className="w-5 h-5 text-green-500" /> <span className="font-medium">{t.richText}</span>
+                </button>
+                <button onClick={() => addBlock('cards')} className="flex items-center gap-3 p-3 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl text-left transition">
+                  <CreditCard className="w-5 h-5 text-purple-500" /> <span className="font-medium">{t.cardsSection}</span>
+                </button>
+                <button onClick={() => addBlock('contactForm')} className="flex items-center gap-3 p-3 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-xl text-left transition">
+                  <FormInput className="w-5 h-5 text-orange-500" /> <span className="font-medium">{t.contactForm}</span>
+                </button>
+                <button onClick={() => addBlock('newsletter')} className="flex items-center gap-3 p-3 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-xl text-left transition">
+                  <Mail className="w-5 h-5 text-pink-500" /> <span className="font-medium">{t.newsletter}</span>
+                </button>
+                <button onClick={() => addBlock('footer')} className="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-left transition">
+                  <PanelBottom className="w-5 h-5 text-gray-500" /> <span className="font-medium">{t.footer}</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+          
+          <button 
+            onClick={() => setShowBlockMenu(!showBlockMenu)}
+            className="w-full py-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-gray-500 hover:text-blue-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition flex items-center justify-center gap-2 font-bold"
+          >
+            <Plus className="w-5 h-5" /> {t.addBlock}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrary, darkMode, t }: any) => {
+  const [expanded, setExpanded] = useState(true);
+
+  const getIcon = () => {
+    switch(block.type) {
+      case 'hero': return <Layout className="w-5 h-5 text-blue-500" />;
+      case 'richText': return <Type className="w-5 h-5 text-green-500" />;
+      case 'cards': return <CreditCard className="w-5 h-5 text-purple-500" />;
+      case 'contactForm': return <FormInput className="w-5 h-5 text-orange-500" />;
+      case 'newsletter': return <Mail className="w-5 h-5 text-pink-500" />;
+      case 'footer': return <PanelBottom className="w-5 h-5 text-gray-500" />;
+      default: return <Layout className="w-5 h-5" />;
+    }
+  };
+
+  const getTitle = () => {
+    switch(block.type) {
+      case 'hero': return t.heroSection;
+      case 'richText': return t.richText;
+      case 'cards': return t.cardsSection;
+      case 'contactForm': return t.contactForm;
+      case 'newsletter': return t.newsletter;
+      case 'footer': return t.footer;
+      default: return 'Block';
+    }
+  };
+
+  return (
+    <div className={`rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-sm overflow-hidden transition-all`}>
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+        <div className="flex items-center gap-3">
+          <div className="text-gray-400 cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></div>
+          <div className={`p-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white shadow-sm'}`}>
+            {getIcon()}
+          </div>
+          <span className="font-bold">{getTitle()}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onMove('up')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronUp className="w-4 h-4" /></button>
+          <button onClick={() => onMove('down')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronDown className="w-4 h-4" /></button>
+          <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          <button onClick={onRemove} className="p-1.5 text-red-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="p-6">
+          {block.type === 'hero' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.template}</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {['centered', 'split', 'gradient', 'imageBg'].map(temp => (
+                    <button 
+                      key={temp}
+                      onClick={() => onUpdate({ template: temp })}
+                      className={`p-3 rounded-xl border text-sm font-medium transition ${block.template === temp ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                    >
+                      {t[temp] || temp.charAt(0).toUpperCase() + temp.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.titleLabel}</label>
+                <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.subtitleLabel}</label>
+                <textarea value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={3} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
+                  <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.buttonLink}</label>
+                  <input type="text" value={block.buttonLink} onChange={e => onUpdate({ buttonLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+
+              {block.template === 'imageBg' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.backgroundImage}</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={block.backgroundImage || ''} onChange={e => onUpdate({ backgroundImage: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://..." />
+                    <button 
+                      onClick={() => openMediaLibrary((url) => onUpdate({ backgroundImage: url }))}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                    >
+                      {t.upload}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {block.type === 'richText' && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium mb-1.5">{t.contentHtml}</label>
+              <textarea 
+                value={block.content} 
+                onChange={e => onUpdate({ content: e.target.value })} 
+                className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`} 
+                rows={8} 
+                placeholder={t.placeholderHtml}
+              />
+            </div>
+          )}
+
+          {block.type === 'cards' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.sectionHeading}</label>
+                <input type="text" value={block.heading} onChange={e => onUpdate({ heading: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.columns}</label>
+                <div className="flex gap-2">
+                  {[2, 3, 4].map(c => (
+                    <button 
+                      key={c}
+                      onClick={() => onUpdate({ columns: c })}
+                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${block.columns === c ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      {c} {t.cols}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-3 mt-4">
+                <label className="block text-sm font-medium">{t.cards}</label>
+                {block.cards.map((card: any, i: number) => (
+                  <div key={card.id} className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase">{t.card} {i + 1}</span>
+                      <button onClick={() => onUpdate({ cards: block.cards.filter((_: any, idx: number) => idx !== i) })} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input type="text" placeholder={t.iconName} value={card.icon} onChange={e => { const newCards = [...block.cards]; newCards[i].icon = e.target.value; onUpdate({ cards: newCards }); }} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      <input type="text" placeholder={t.titleLabel} value={card.title} onChange={e => { const newCards = [...block.cards]; newCards[i].title = e.target.value; onUpdate({ cards: newCards }); }} className={`col-span-2 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                    <textarea placeholder={t.description} value={card.description} onChange={e => { const newCards = [...block.cards]; newCards[i].description = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full mt-3 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+                  </div>
+                ))}
+                <button 
+                  onClick={() => onUpdate({ cards: [...block.cards, { id: Math.random().toString(), icon: 'Zap', title: 'New Card', description: 'Description here' }] })}
+                  className="w-full py-3 border border-dashed border-gray-300 rounded-xl text-gray-500 hover:text-blue-600 hover:border-blue-500 transition font-medium"
+                >
+                  {t.addCard}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {block.type === 'contactForm' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.formTitle}</label>
+                  <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.formSubtitle}</label>
+                  <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+              <div className="space-y-3 mt-4">
+                <label className="block text-sm font-medium">{t.formFields}</label>
+                {block.fields.map((field: any, i: number) => (
+                  <div key={field.id} className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase">{t.field} {i + 1}</span>
+                      <button onClick={() => onUpdate({ fields: block.fields.filter((_: any, idx: number) => idx !== i) })} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input type="text" placeholder={t.label} value={field.label} onChange={e => { const newFields = [...block.fields]; newFields[i].label = e.target.value; onUpdate({ fields: newFields }); }} className={`col-span-2 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      <select value={field.type} onChange={e => { const newFields = [...block.fields]; newFields[i].type = e.target.value; onUpdate({ fields: newFields }); }} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                        <option value="text">Text</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                        <option value="textarea">Textarea</option>
+                      </select>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <input type="checkbox" checked={field.required} onChange={e => { const newFields = [...block.fields]; newFields[i].required = e.target.checked; onUpdate({ fields: newFields }); }} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" />
+                      <label className="text-sm">{t.requiredField}</label>
+                    </div>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => onUpdate({ fields: [...block.fields, { id: Math.random().toString(), type: 'text', label: 'New Field', required: false }] })}
+                  className="w-full py-3 border border-dashed border-gray-300 rounded-xl text-gray-500 hover:text-blue-600 hover:border-blue-500 transition font-medium"
+                >
+                  {t.addField}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {block.type === 'newsletter' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.titleLabel}</label>
+                  <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.subtitleLabel}</label>
+                  <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.placeholderText}</label>
+                  <input type="text" value={block.placeholderText} onChange={e => onUpdate({ placeholderText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
+                  <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {block.type === 'footer' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.companyName}</label>
+                  <input type="text" value={block.companyName} onChange={e => onUpdate({ companyName: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.copyrightText}</label>
+                  <input type="text" value={block.copyright} onChange={e => onUpdate({ copyright: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.description}</label>
+                <textarea value={block.description} onChange={e => onUpdate({ description: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Menu Editor Subcomponent ---
+
+const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, darkMode, t, language }: { config: CmsMenuConfig, onSave: (c: CmsMenuConfig) => void, pages: CmsPage[], onSavePages: (p: CmsPage[]) => void, openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+  const [localConfig, setLocalConfig] = useState<CmsMenuConfig>(config);
+
+  const handleSave = () => {
+    onSave(localConfig);
+  };
+
+  const togglePageInMenu = (pageId: string) => {
+    const updatedPages = pages.map(p => p.id === pageId ? { ...p, inMenu: !p.inMenu } : p);
+    onSavePages(updatedPages);
+  };
+
+  const addSocialLink = () => {
+    const newLink: SocialLink = { id: Math.random().toString(36).substr(2, 9), platform: 'Facebook', url: '' };
+    setLocalConfig({ ...localConfig, socialLinks: [...localConfig.socialLinks, newLink] });
+  };
+
+  const updateSocialLink = (id: string, updates: Partial<SocialLink>) => {
+    setLocalConfig({
+      ...localConfig,
+      socialLinks: localConfig.socialLinks.map(link => link.id === id ? { ...link, ...updates } : link)
+    });
+  };
+
+  const removeSocialLink = (id: string) => {
+    setLocalConfig({
+      ...localConfig,
+      socialLinks: localConfig.socialLinks.filter(link => link.id !== id)
+    });
+  };
+
+  return (
+    <div className={`max-w-4xl mx-auto space-y-6 animate-in fade-in ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex justify-end">
+        <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+          <Save className="w-4 h-4" /> {t.saveMenuSettings}
+        </button>
+      </div>
+
+      {/* Navigation Pages Toggle */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><ArrowRight className={`w-5 h-5 text-blue-500 ${language === 'ar' ? 'rotate-180' : ''}`} /> {t.navigationPages}</h3>
+        <p className="text-sm text-gray-500 mb-4">{t.navigationPagesDesc}</p>
+        <div className="space-y-3">
+          {pages.map(page => (
+            <div key={page.id} className={`flex items-center justify-between p-4 rounded-xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+              <div>
+                <h4 className="font-bold">{page.title}</h4>
+                <p className="text-xs text-gray-500">{page.slug}</p>
+              </div>
+              <button 
+                onClick={() => togglePageInMenu(page.id)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${page.inMenu ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${page.inMenu ? (language === 'ar' ? 'right-7' : 'left-7') : (language === 'ar' ? 'right-1' : 'left-1')}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Background Style */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Layout className="w-5 h-5 text-blue-500" /> {t.backgroundStyle}</h3>
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-3">{t.style}</label>
+            <div className="flex flex-wrap gap-2">
+              {['solid', 'gradient', 'transparent', 'glass'].map(s => (
+                <button 
+                  key={s}
+                  onClick={() => setLocalConfig({...localConfig, backgroundStyle: s as any})}
+                  className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.backgroundStyle === s ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                >
+                  {s === 'glass' ? t.glassBlur : t[s] || s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {localConfig.backgroundStyle === 'solid' && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">{t.backgroundColor}</label>
+              <div className="flex gap-2">
+                <input type="color" value={localConfig.backgroundColor} onChange={e => setLocalConfig({...localConfig, backgroundColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                <input type="text" value={localConfig.backgroundColor} onChange={e => setLocalConfig({...localConfig, backgroundColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              </div>
+            </div>
+          )}
+
+          {localConfig.backgroundStyle === 'gradient' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.startColor}</label>
+                <div className="flex gap-2">
+                  <input type="color" value={localConfig.gradientStart || '#ffffff'} onChange={e => setLocalConfig({...localConfig, gradientStart: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                  <input type="text" value={localConfig.gradientStart || '#ffffff'} onChange={e => setLocalConfig({...localConfig, gradientStart: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t.endColor}</label>
+                <div className="flex gap-2">
+                  <input type="color" value={localConfig.gradientEnd || '#000000'} onChange={e => setLocalConfig({...localConfig, gradientEnd: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                  <input type="text" value={localConfig.gradientEnd || '#000000'} onChange={e => setLocalConfig({...localConfig, gradientEnd: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-3">{t.bottomBorder}</label>
+            <div className="flex gap-2">
+              {['none', 'line', 'shadow'].map(b => (
+                <button 
+                  key={b}
+                  onClick={() => setLocalConfig({...localConfig, bottomBorder: b as any})}
+                  className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.bottomBorder === b ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                >
+                  {t[b] || b}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input 
+              type="checkbox" 
+              id="sticky" 
+              checked={localConfig.sticky} 
+              onChange={e => setLocalConfig({...localConfig, sticky: e.target.checked})}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="sticky" className="text-sm font-medium">{t.stickyHeader}</label>
+          </div>
+        </div>
+      </div>
+
+      {/* Menu Items Style */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Type className="w-5 h-5 text-blue-500" /> {t.menuItemsStyle}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t.textColor}</label>
+            <div className="flex gap-2">
+              <input type="color" value={localConfig.textColor} onChange={e => setLocalConfig({...localConfig, textColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+              <input type="text" value={localConfig.textColor} onChange={e => setLocalConfig({...localConfig, textColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t.hoverColor}</label>
+            <div className="flex gap-2">
+              <input type="color" value={localConfig.hoverColor} onChange={e => setLocalConfig({...localConfig, hoverColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+              <input type="text" value={localConfig.hoverColor} onChange={e => setLocalConfig({...localConfig, hoverColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Button Style */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><CreditCard className="w-5 h-5 text-blue-500" /> {t.menuButtonStyle}</h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <input 
+              type="checkbox" 
+              id="showSignIn" 
+              checked={localConfig.showSignIn} 
+              onChange={e => setLocalConfig({...localConfig, showSignIn: e.target.checked})}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="showSignIn" className="text-sm font-medium">{t.showPrimaryButton}</label>
+          </div>
+
+          {localConfig.showSignIn && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
+                  <input type="text" value={localConfig.signInText} onChange={e => setLocalConfig({...localConfig, signInText: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.buttonLink}</label>
+                  <input type="text" value={localConfig.signInLink} onChange={e => setLocalConfig({...localConfig, signInLink: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.backgroundColor}</label>
+                  <div className="flex gap-2">
+                    <input type="color" value={localConfig.signInBgColor} onChange={e => setLocalConfig({...localConfig, signInBgColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInBgColor} onChange={e => setLocalConfig({...localConfig, signInBgColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.textColor}</label>
+                  <div className="flex gap-2">
+                    <input type="color" value={localConfig.signInTextColor} onChange={e => setLocalConfig({...localConfig, signInTextColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInTextColor} onChange={e => setLocalConfig({...localConfig, signInTextColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.borderColor}</label>
+                  <div className="flex gap-2">
+                    <input type="color" value={localConfig.signInBorderColor} onChange={e => setLocalConfig({...localConfig, signInBorderColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInBorderColor} onChange={e => setLocalConfig({...localConfig, signInBorderColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.hoverEffectColor}</label>
+                  <div className="flex gap-2">
+                    <input type="color" value={localConfig.signInHoverBgColor} onChange={e => setLocalConfig({...localConfig, signInHoverBgColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInHoverBgColor} onChange={e => setLocalConfig({...localConfig, signInHoverBgColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-3">{t.buttonStyle}</label>
+                <div className="flex gap-2">
+                  {['solid', 'outline', 'ghost'].map(s => (
+                    <button 
+                      key={s}
+                      onClick={() => setLocalConfig({...localConfig, signInStyle: s as any})}
+                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.signInStyle === s ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                    >
+                      {t[s] || s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Logo */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><ImageIcon className="w-5 h-5 text-purple-500" /> {t.logo}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t.logoText}</label>
+            <input type="text" value={localConfig.logoText} onChange={e => setLocalConfig({...localConfig, logoText: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t.logoImageUrl}</label>
+            <div className="flex gap-2">
+              <input type="text" value={localConfig.logoImage || ''} onChange={e => setLocalConfig({...localConfig, logoImage: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://..." />
+              <button 
+                onClick={() => openMediaLibrary((url) => setLocalConfig({...localConfig, logoImage: url}))}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              >
+                {t.upload}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Social Media Icons */}
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Globe className="w-5 h-5 text-blue-500" /> {t.socialMediaIcons}</h3>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <input 
+              type="checkbox" 
+              id="showSocial" 
+              checked={localConfig.showSocial} 
+              onChange={e => setLocalConfig({...localConfig, showSocial: e.target.checked})}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="showSocial" className="text-sm font-medium">{t.showSocialIcons}</label>
+          </div>
+
+          {localConfig.showSocial && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-3">{t.iconsPosition}</label>
+                <div className="flex gap-2">
+                  {['left', 'right'].map(p => (
+                    <button 
+                      key={p}
+                      onClick={() => setLocalConfig({...localConfig, socialPosition: p as any})}
+                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.socialPosition === p ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                    >
+                      {t[p] || p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {localConfig.socialLinks.map((link) => (
+                  <div key={link.id} className="flex gap-3 items-center">
+                    <select 
+                      value={link.platform} 
+                      onChange={e => updateSocialLink(link.id, { platform: e.target.value })}
+                      className={`w-32 px-3 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}
+                    >
+                      {['Facebook', 'LinkedIn', 'YouTube', 'GitHub', 'Twitter', 'Instagram'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <input 
+                      type="text" 
+                      value={link.url} 
+                      onChange={e => updateSocialLink(link.id, { url: e.target.value })}
+                      placeholder="https://..."
+                      className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+                    />
+                    <button onClick={() => removeSocialLink(link.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  onClick={addSocialLink}
+                  className="w-full py-3 border border-dashed border-gray-300 rounded-xl text-gray-500 hover:text-blue-600 hover:border-blue-500 transition font-medium"
+                >
+                  + {t.addSocialLink}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SettingsEditor = ({ settings, onSave, darkMode, t, language }: { settings: SiteSettings, onSave: (s: SiteSettings) => void, darkMode: boolean, t: any, language: string }) => {
+  const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
+
+  const handleSave = () => {
+    onSave(localSettings);
+  };
+
+  return (
+    <div className={`max-w-4xl mx-auto space-y-6 animate-in fade-in ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex justify-end">
+        <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+          <Save className="w-4 h-4" /> {t.saveSettings}
+        </button>
+      </div>
+
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Key className="w-5 h-5 text-yellow-500" /> {t.envVarsApiKeys}</h3>
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl border border-yellow-200 bg-yellow-50 dark:border-yellow-900/30 dark:bg-yellow-900/10 text-yellow-800 dark:text-yellow-300 text-sm">
+            <strong>{t.securityNote}:</strong> {t.securityNoteDesc}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{t.geminiApiKey}</label>
+            <input 
+              type="password" 
+              value={localSettings.geminiApiKey || ''} 
+              onChange={e => setLocalSettings({...localSettings, geminiApiKey: e.target.value})} 
+              className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+              placeholder="AIzaSy..."
+            />
+            <p className="text-xs text-gray-500 mt-1">{t.geminiApiKeyOverride}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Globe className="w-5 h-5 text-blue-500" /> {t.socialMediaLinks}</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">{t.facebook}</label>
+              <input type="text" value={localSettings.socialLinks.facebook} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, facebook: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://facebook.com/..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">{t.twitter}</label>
+              <input type="text" value={localSettings.socialLinks.twitter} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, twitter: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://twitter.com/..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">{t.linkedin}</label>
+              <input type="text" value={localSettings.socialLinks.linkedin} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, linkedin: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://linkedin.com/in/..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">{t.github}</label>
+              <input type="text" value={localSettings.socialLinks.github} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, github: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://github.com/..." />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Code className="w-5 h-5 text-gray-700 dark:text-gray-300" /> {t.deploymentHosting}</h3>
+        <div className="space-y-4 text-sm">
+          <p className="text-gray-600 dark:text-gray-400">
+            {t.deploymentHostingDesc}
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-400">
+            <li><strong>Vercel:</strong> {t.vercelDesc}</li>
+            <li><strong>Netlify:</strong> {t.netlifyDesc}</li>
+            <li><strong>{t.envVars}:</strong> {t.envVarsDesc}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default WebsiteCMS;

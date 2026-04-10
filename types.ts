@@ -87,6 +87,132 @@ export interface SiteSettings {
   geminiApiKey?: string;
 }
 
+export type BlockType = 'hero' | 'richText' | 'cards' | 'contactForm' | 'newsletter' | 'footer';
+
+export interface BaseBlock {
+  id: string;
+  type: BlockType;
+}
+
+export interface NewsletterBlock extends BaseBlock {
+  type: 'newsletter';
+  title: string;
+  subtitle: string;
+  placeholderText: string;
+  buttonText: string;
+  backgroundColor: string;
+  textColor: string;
+}
+
+export interface HeroBlock extends BaseBlock {
+  type: 'hero';
+  template: 'centered' | 'split' | 'gradient' | 'imageBg';
+  title: string;
+  subtitle: string;
+  buttonText: string;
+  buttonLink: string;
+  backgroundImage?: string;
+  overlayColor?: string;
+}
+
+export interface RichTextBlock extends BaseBlock {
+  type: 'richText';
+  content: string;
+}
+
+export interface CardItem {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface CardsBlock extends BaseBlock {
+  type: 'cards';
+  heading: string;
+  columns: 2 | 3 | 4;
+  cards: CardItem[];
+}
+
+export interface FormField {
+  id: string;
+  type: 'text' | 'email' | 'phone' | 'select' | 'textarea';
+  label: string;
+  required: boolean;
+}
+
+export interface FormBlock extends BaseBlock {
+  type: 'contactForm';
+  title: string;
+  subtitle: string;
+  fields: FormField[];
+  formWidth: 'narrow' | 'medium' | 'wide' | 'full';
+  sectionPadding: 'small' | 'medium' | 'large';
+  backgroundColor: string;
+  submitText: string;
+  submitBgColor: string;
+  submitTextColor: string;
+  destination: 'firestore' | 'webhook';
+  firestoreCollection?: string;
+}
+
+export interface FooterColumn {
+  id: string;
+  title: string;
+  links: { id: string; label: string; url: string }[];
+}
+
+export interface FooterBlock extends BaseBlock {
+  type: 'footer';
+  template: 'simple' | 'columns' | 'centered';
+  companyName: string;
+  copyright: string;
+  description: string;
+  columns: FooterColumn[];
+}
+
+export type CmsBlock = HeroBlock | RichTextBlock | CardsBlock | FormBlock | NewsletterBlock | FooterBlock;
+
+export interface CmsPage {
+  id: string;
+  title: string;
+  slug: string;
+  status: 'published' | 'draft';
+  inMenu: boolean;
+  blocks: CmsBlock[];
+}
+
+export interface SocialLink {
+  id: string;
+  platform: string;
+  url: string;
+}
+
+export interface CmsMenuConfig {
+  backgroundStyle: 'solid' | 'gradient' | 'transparent' | 'glass';
+  backgroundColor: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  bottomBorder: 'none' | 'line' | 'shadow';
+  sticky: boolean;
+  textColor: string;
+  hoverColor: string;
+  logoText: string;
+  logoImage?: string;
+  logoPosition: 'left' | 'center';
+  showSocial: boolean;
+  socialLinks: SocialLink[];
+  socialPosition: 'left' | 'right';
+  showSignIn: boolean;
+  signInText: string;
+  signInLink: string;
+  signInBgColor: string;
+  signInTextColor: string;
+  signInBorderColor: string;
+  signInHoverBgColor: string;
+  signInStyle: 'solid' | 'outline' | 'ghost';
+}
+
 export interface AppState {
   users: User[];
   files: AttendanceFile[];
@@ -99,4 +225,6 @@ export interface AppState {
   storageMode?: 'local' | 'firebase';
   connectedFileName?: string;
   siteSettings?: SiteSettings;
+  cmsPages?: CmsPage[];
+  cmsMenu?: CmsMenuConfig;
 }

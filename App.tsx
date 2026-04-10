@@ -6,7 +6,8 @@ import { TRANSLATIONS } from './constants';
 import Layout from './components/Layout';
 import AttendanceTable from './components/AttendanceTable';
 import HomePage from './components/HomePage';
-import AdminCMS from './components/AdminCMS';
+import WebsiteCMS from './components/WebsiteCMS';
+import PublicPage from './components/PublicPage';
 import { extractAttendanceData } from './services/geminiService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
@@ -106,6 +107,60 @@ const INITIAL_STATE: AppState = {
     ],
     socialLinks: { facebook: '', twitter: '', linkedin: '', github: '' },
     menuStyle: 'classic'
+  },
+  cmsPages: [
+    {
+      id: 'home-page-1',
+      title: 'Home',
+      slug: '/',
+      status: 'published',
+      inMenu: true,
+      blocks: [
+        {
+          id: 'hero-1',
+          type: 'hero',
+          template: 'centered',
+          title: 'Complete HR Management System for Modern Organizations',
+          subtitle: 'Manage employees, attendance, payroll, leaves, bonuses, insurance, and organizational setup all in one unified platform.',
+          buttonText: 'Get Started',
+          buttonLink: '/login'
+        } as import('./types').HeroBlock,
+        {
+          id: 'cards-1',
+          type: 'cards',
+          heading: 'Why Choose HR ERP?',
+          columns: 3,
+          cards: [
+            { id: 'c1', icon: 'Zap', title: 'Automated Payroll', description: 'Salary calculations with deductions, bonuses, and insurance integration.' },
+            { id: 'c2', icon: 'ShieldCheck', title: 'Enterprise Security', description: '7-layer security framework with role-based access control.' },
+            { id: 'c3', icon: 'Users', title: 'Employee Self-Service', description: 'Empower employees to manage their own data and requests.' }
+          ]
+        } as import('./types').CardsBlock
+      ]
+    }
+  ],
+  cmsMenu: {
+    backgroundStyle: 'solid',
+    backgroundColor: '#ffffff',
+    gradientStart: '#3b82f6',
+    gradientEnd: '#2563eb',
+    bottomBorder: 'line',
+    sticky: true,
+    textColor: '#1f2937',
+    hoverColor: '#2563eb',
+    logoText: 'HR ERP',
+    logoPosition: 'left',
+    showSocial: true,
+    socialPosition: 'right',
+    socialLinks: [],
+    showSignIn: true,
+    signInText: 'Sign In',
+    signInLink: '/login',
+    signInBgColor: '#2563eb',
+    signInTextColor: '#ffffff',
+    signInBorderColor: '#2563eb',
+    signInHoverBgColor: '#1d4ed8',
+    signInStyle: 'solid'
   }
 };
 
@@ -672,6 +727,9 @@ const App: React.FC = () => {
     isDelete: boolean = false,
     localStateUpdater: (prev: AppState) => AppState
   ) => {
+    // Optimistically update local state first
+    setState(localStateUpdater);
+
     if (state.storageMode === 'firebase' && currentUser) {
       const docRef = doc(db, `users/${currentUser.id}/${collectionName}`, docId);
       try {
@@ -686,9 +744,8 @@ const App: React.FC = () => {
         }
       } catch (err) {
         handleFirestoreError(err, isDelete ? OperationType.DELETE : OperationType.WRITE, docRef.path);
+        // If it fails, we might want to revert, but for now we rely on onSnapshot to correct it
       }
-    } else {
-      setState(localStateUpdater);
     }
   };
 
@@ -1122,16 +1179,27 @@ const App: React.FC = () => {
           </div>
         ) : !currentUser ? (
           showLanding ? (
-            <HomePage 
-              t={t} 
-              language={state.language} 
-              darkMode={state.darkMode} 
-              siteSettings={state.siteSettings}
-              onGetStarted={() => setShowLanding(false)} 
-              onSignIn={() => setShowLanding(false)}
-              onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
-              onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
-            />
+            state.cmsPages && state.cmsPages.length > 0 && state.cmsMenu ? (
+              <PublicPage 
+                page={state.cmsPages.find(p => p.slug === window.location.hash.replace('#', '') || (window.location.hash === '' && p.slug === '/')) || state.cmsPages[0]} 
+                pages={state.cmsPages}
+                menuConfig={state.cmsMenu}
+                darkMode={state.darkMode}
+                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+                onSignIn={() => setShowLanding(false)}
+              />
+            ) : (
+              <HomePage 
+                t={t} 
+                language={state.language} 
+                darkMode={state.darkMode} 
+                siteSettings={state.siteSettings}
+                onGetStarted={() => setShowLanding(false)} 
+                onSignIn={() => setShowLanding(false)}
+                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
+                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+              />
+            )
           ) : (
             <LoginPage 
               onLogin={handleFormLogin} 
@@ -1170,7 +1238,7 @@ const App: React.FC = () => {
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
-             currentView === 'cms' ? <AdminCMS settings={state.siteSettings!} onSave={(newSettings) => updateStateAndFirestore('settings', 'site', newSettings, false, p => ({...p, siteSettings: newSettings}))} language={state.language} darkMode={state.darkMode} /> :
+             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} /> :
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}
