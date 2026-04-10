@@ -108,9 +108,23 @@ export interface HeroBlock extends BaseBlock {
   type: 'hero';
   template: 'centered' | 'split' | 'gradient' | 'imageBg';
   title: string;
+  titleColor?: string;
+  titleFont?: string;
+  showSecondTitle?: boolean;
+  secondTitle?: string;
+  secondTitleColor?: string;
+  secondTitleFont?: string;
   subtitle: string;
+  subtitleColor?: string;
   buttonText: string;
   buttonLink: string;
+  buttonBgColor?: string;
+  buttonTextColor?: string;
+  showSecondButton?: boolean;
+  secondButtonText?: string;
+  secondButtonLink?: string;
+  secondButtonBgColor?: string;
+  secondButtonTextColor?: string;
   backgroundImage?: string;
   overlayColor?: string;
 }
@@ -213,6 +227,22 @@ export interface CmsMenuConfig {
   signInStyle: 'solid' | 'outline' | 'ghost';
 }
 
+export interface AppMenuItem {
+  id: string;
+  name: string;
+  link: string;
+  icon: string;
+}
+
+export interface AppMenuConfig {
+  logoImage?: string;
+  appName: string;
+  fontFamily: string;
+  fontSize: string;
+  fontColor: string;
+  items: AppMenuItem[];
+}
+
 export interface AppState {
   users: User[];
   files: AttendanceFile[];
@@ -227,4 +257,5 @@ export interface AppState {
   siteSettings?: SiteSettings;
   cmsPages?: CmsPage[];
   cmsMenu?: CmsMenuConfig;
+  appMenu?: AppMenuConfig;
 }

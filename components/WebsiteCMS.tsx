@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
 import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon } from 'lucide-react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
@@ -10,27 +10,48 @@ import { TRANSLATIONS } from '../constants';
 interface WebsiteCMSProps {
   pages: CmsPage[];
   menuConfig: CmsMenuConfig;
+  appMenuConfig?: import('../types').AppMenuConfig;
   siteSettings: SiteSettings;
   onSavePages: (pages: CmsPage[]) => void;
   onSaveMenu: (menu: CmsMenuConfig) => void;
+  onSaveAppMenu?: (menu: import('../types').AppMenuConfig) => void;
   onSaveSettings: (settings: SiteSettings) => void;
   language: string;
   darkMode: boolean;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings, onSavePages, onSaveMenu, onSaveSettings, language, darkMode }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, language, darkMode }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
   }, [language]);
 
-  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'settings'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings'>('pages');
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false);
   const [mediaLibraryCallback, setMediaLibraryCallback] = useState<((url: string) => void) | null>(null);
   const [pageToDelete, setPageToDelete] = useState<string | null>(null);
   const [backlinksPage, setBacklinksPage] = useState<CmsPage | null>(null);
+  const [mediaImages, setMediaImages] = useState<{id: string, url: string, name: string}[]>([
+    { id: '1', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000', name: 'Office Space' },
+    { id: '2', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000', name: 'Team Collaboration' },
+    { id: '3', url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1000', name: 'Tech Setup' },
+  ]);
+
+  const handleDirectUpload = (file: File, callback: (url: string) => void) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const newImage = {
+        id: Math.random().toString(36).substr(2, 9),
+        url: reader.result as string,
+        name: file.name
+      };
+      setMediaImages(prev => [newImage, ...prev]);
+      callback(newImage.url);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const openMediaLibrary = (callback: (url: string) => void) => {
     setMediaLibraryCallback(() => callback);
@@ -130,7 +151,26 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings
   };
 
   if (editingPageId && editingPage) {
-    return <PageEditor page={editingPage} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />;
+    return (
+      <>
+        <PageEditor page={editingPage} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} handleDirectUpload={handleDirectUpload} darkMode={darkMode} t={t} language={language} />
+        <MediaLibrary 
+          isOpen={isMediaLibraryOpen} 
+          onClose={() => {
+            setIsMediaLibraryOpen(false);
+            setMediaLibraryCallback(null);
+          }} 
+          onSelect={(url) => {
+            if (mediaLibraryCallback) mediaLibraryCallback(url);
+            setIsMediaLibraryOpen(false);
+            setMediaLibraryCallback(null);
+          }}
+          darkMode={darkMode} 
+          images={mediaImages}
+          setImages={setMediaImages}
+        />
+      </>
+    );
   }
 
   return (
@@ -147,6 +187,13 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings
           >
             <Layout className="w-4 h-4" />
             {t.menuStyle}
+          </button>
+          <button 
+            onClick={() => setActiveTab('appMenu')}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'appMenu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          >
+            <PanelBottom className="w-4 h-4" />
+            App Menu
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
@@ -240,6 +287,8 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings
         </div>
       ) : activeTab === 'menu' ? (
         <MenuEditor config={menuConfig} onSave={onSaveMenu} pages={pages} onSavePages={onSavePages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />
+      ) : activeTab === 'appMenu' && onSaveAppMenu ? (
+        <AppMenuEditor config={appMenuConfig} onSave={onSaveAppMenu} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} />
       ) : (
         <SettingsEditor settings={siteSettings} onSave={onSaveSettings} darkMode={darkMode} t={t} language={language} />
       )}
@@ -256,6 +305,8 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings
           setMediaLibraryCallback(null);
         }}
         darkMode={darkMode} 
+        images={mediaImages}
+        setImages={setMediaImages}
       />
 
       <TemplateSelector 
@@ -374,7 +425,7 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, siteSettings
 
 // --- Page Editor Subcomponent ---
 
-const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, darkMode, t, language }: { page: CmsPage, menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, handleDirectUpload, darkMode, t, language }: { page: CmsPage, menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, handleDirectUpload: (file: File, cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
   const [localPage, setLocalPage] = useState<CmsPage>(page);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [isEditingSlug, setIsEditingSlug] = useState(false);
@@ -513,6 +564,7 @@ const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaL
                 onRemove={() => removeBlock(block.id)}
                 onMove={(dir: any) => moveBlock(index, dir)}
                 openMediaLibrary={openMediaLibrary}
+                handleDirectUpload={handleDirectUpload}
                 darkMode={darkMode}
                 t={t}
               />
@@ -558,8 +610,9 @@ const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaL
   );
 };
 
-const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrary, darkMode, t }: any) => {
+const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrary, handleDirectUpload, darkMode, t }: any) => {
   const [expanded, setExpanded] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getIcon = () => {
     switch(block.type) {
@@ -608,7 +661,7 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
       {expanded && (
         <div className="p-6">
           {block.type === 'hero' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium mb-1.5">{t.template}</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -623,37 +676,195 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.titleLabel}</label>
-                <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.subtitleLabel}</label>
-                <textarea value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={3} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
-                  <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+
+              {/* Title 1 */}
+              <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.titleLabel} 1</h4>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.buttonLink}</label>
-                  <input type="text" value={block.buttonLink} onChange={e => onUpdate({ buttonLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.titleColor}</label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={block.titleColor || (darkMode ? '#ffffff' : '#111827')} onChange={e => onUpdate({ titleColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                      <input type="text" value={block.titleColor || (darkMode ? '#ffffff' : '#111827')} onChange={e => onUpdate({ titleColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.titleFont}</label>
+                    <select value={block.titleFont || 'Inter'} onChange={e => onUpdate({ titleFont: e.target.value })} className={`w-full px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                      <option value="Inter">Inter</option>
+                      <option value="Outfit">Outfit</option>
+                      <option value="Space Grotesk">Space Grotesk</option>
+                      <option value="Playfair Display">Playfair Display</option>
+                      <option value="JetBrains Mono">JetBrains Mono</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {block.template === 'imageBg' && (
+              {/* Title 2 Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <span className="font-bold text-sm">{t.showSecondTitle}</span>
+                <button 
+                  onClick={() => onUpdate({ showSecondTitle: !block.showSecondTitle })}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${block.showSecondTitle ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${block.showSecondTitle ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+
+              {/* Title 2 */}
+              {block.showSecondTitle && (
+                <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in slide-in-from-top-2">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.secondTitle}</h4>
+                  <div>
+                    <input type="text" value={block.secondTitle || ''} onChange={e => onUpdate({ secondTitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.secondTitleColor}</label>
+                      <div className="flex gap-2 items-center">
+                        <input type="color" value={block.secondTitleColor || '#3b82f6'} onChange={e => onUpdate({ secondTitleColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                        <input type="text" value={block.secondTitleColor || '#3b82f6'} onChange={e => onUpdate({ secondTitleColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.secondTitleFont}</label>
+                      <select value={block.secondTitleFont || 'Inter'} onChange={e => onUpdate({ secondTitleFont: e.target.value })} className={`w-full px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                        <option value="Inter">Inter</option>
+                        <option value="Outfit">Outfit</option>
+                        <option value="Space Grotesk">Space Grotesk</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="JetBrains Mono">JetBrains Mono</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtitle */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-sm font-medium">{t.subtitleLabel}</label>
+                  <input type="color" value={block.subtitleColor || (darkMode ? '#9ca3af' : '#6b7280')} onChange={e => onUpdate({ subtitleColor: e.target.value })} className="w-6 h-6 rounded-md cursor-pointer border-none bg-transparent" />
+                </div>
+                <textarea value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={3} />
+              </div>
+
+              {/* Button 1 */}
+              <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.buttonText} 1</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonText}</label>
+                    <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonLink}</label>
+                    <input type="text" value={block.buttonLink} onChange={e => onUpdate({ buttonLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonBgColor}</label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={block.buttonBgColor || '#2563eb'} onChange={e => onUpdate({ buttonBgColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                      <input type="text" value={block.buttonBgColor || '#2563eb'} onChange={e => onUpdate({ buttonBgColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonTextColor}</label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={block.buttonTextColor || '#ffffff'} onChange={e => onUpdate({ buttonTextColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                      <input type="text" value={block.buttonTextColor || '#ffffff'} onChange={e => onUpdate({ buttonTextColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Button 2 Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <span className="font-bold text-sm">{t.showSecondButton}</span>
+                <button 
+                  onClick={() => onUpdate({ showSecondButton: !block.showSecondButton })}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${block.showSecondButton ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${block.showSecondButton ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+
+              {/* Button 2 */}
+              {block.showSecondButton && (
+                <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in slide-in-from-top-2">
+                  <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.secondButtonText}</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonText}</label>
+                      <input type="text" value={block.secondButtonText || ''} onChange={e => onUpdate({ secondButtonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonLink}</label>
+                      <input type="text" value={block.secondButtonLink || ''} onChange={e => onUpdate({ secondButtonLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.secondButtonBgColor}</label>
+                      <div className="flex gap-2 items-center">
+                        <input type="color" value={block.secondButtonBgColor || (darkMode ? '#1f2937' : '#f3f4f6')} onChange={e => onUpdate({ secondButtonBgColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                        <input type="text" value={block.secondButtonBgColor || (darkMode ? '#1f2937' : '#f3f4f6')} onChange={e => onUpdate({ secondButtonBgColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.secondButtonTextColor}</label>
+                      <div className="flex gap-2 items-center">
+                        <input type="color" value={block.secondButtonTextColor || (darkMode ? '#ffffff' : '#111827')} onChange={e => onUpdate({ secondButtonTextColor: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer border-none bg-transparent" />
+                        <input type="text" value={block.secondButtonTextColor || (darkMode ? '#ffffff' : '#111827')} onChange={e => onUpdate({ secondButtonTextColor: e.target.value })} className={`flex-1 px-3 py-1.5 rounded-lg border text-xs ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(block.template === 'imageBg' || block.template === 'split') && (
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.backgroundImage}</label>
                   <div className="flex gap-2">
                     <input type="text" value={block.backgroundImage || ''} onChange={e => onUpdate({ backgroundImage: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://..." />
+                    
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && handleDirectUpload) {
+                          handleDirectUpload(file, (url: string) => onUpdate({ backgroundImage: url }));
+                        }
+                      }}
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-xl font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition whitespace-nowrap"
+                    >
+                      {t.uploadFile}
+                    </button>
+
                     <button 
                       onClick={() => openMediaLibrary((url) => onUpdate({ backgroundImage: url }))}
-                      className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition whitespace-nowrap"
                     >
-                      {t.upload}
+                      {t.chooseFromLibrary}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {block.template === 'split' ? t.imageGuideSplit : t.imageGuideFull}
+                  </p>
                 </div>
               )}
             </div>
@@ -807,6 +1018,214 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+// --- App Menu Editor Subcomponent ---
+
+const AppMenuEditor = ({ config, onSave, openMediaLibrary, darkMode, t }: any) => {
+  const [localConfig, setLocalConfig] = useState<import('../types').AppMenuConfig>(config || {
+    appName: 'HandAttend AI',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '14px',
+    fontColor: '#1f2937',
+    items: []
+  });
+
+  const handleUpdate = (updates: Partial<import('../types').AppMenuConfig>) => {
+    setLocalConfig(prev => ({ ...prev, ...updates }));
+  };
+
+  const handleAddItem = () => {
+    const newItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: 'New Item',
+      link: 'dashboard',
+      icon: 'FileText'
+    };
+    handleUpdate({ items: [...localConfig.items, newItem] });
+  };
+
+  const handleUpdateItem = (id: string, updates: any) => {
+    handleUpdate({
+      items: localConfig.items.map(item => item.id === id ? { ...item, ...updates } : item)
+    });
+  };
+
+  const handleRemoveItem = (id: string) => {
+    handleUpdate({
+      items: localConfig.items.filter(item => item.id !== id)
+    });
+  };
+
+  const handleMoveItem = (index: number, dir: number) => {
+    const newItems = [...localConfig.items];
+    const temp = newItems[index];
+    newItems[index] = newItems[index + dir];
+    newItems[index + dir] = temp;
+    handleUpdate({ items: newItems });
+  };
+
+  const availableIcons = [
+    'LayoutDashboard', 'BookOpen', 'ImageIcon', 'Users', 'Globe', 'FileText', 'Settings', 'Home', 'Mail', 'CreditCard'
+  ];
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+        <h3 className="text-xl font-bold mb-6">App Menu Settings</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Application Name</label>
+            <input 
+              type="text" 
+              value={localConfig.appName} 
+              onChange={e => handleUpdate({ appName: e.target.value })} 
+              className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Logo Image</label>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={localConfig.logoImage || ''} 
+                onChange={e => handleUpdate({ logoImage: e.target.value })} 
+                className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+                placeholder="https://..." 
+              />
+              <button 
+                onClick={() => openMediaLibrary((url: string) => handleUpdate({ logoImage: url }))}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+              >
+                {t.upload}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Font Family</label>
+            <input 
+              type="text" 
+              value={localConfig.fontFamily} 
+              onChange={e => handleUpdate({ fontFamily: e.target.value })} 
+              className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+              placeholder="Inter, sans-serif"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Font Size</label>
+            <input 
+              type="text" 
+              value={localConfig.fontSize} 
+              onChange={e => handleUpdate({ fontSize: e.target.value })} 
+              className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+              placeholder="14px"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Font Color</label>
+            <div className="flex gap-2">
+              <input 
+                type="color" 
+                value={localConfig.fontColor} 
+                onChange={e => handleUpdate({ fontColor: e.target.value })} 
+                className="w-12 h-10 rounded cursor-pointer" 
+              />
+              <input 
+                type="text" 
+                value={localConfig.fontColor} 
+                onChange={e => handleUpdate({ fontColor: e.target.value })} 
+                className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="font-bold">Menu Items</h4>
+          <button 
+            onClick={handleAddItem}
+            className="flex items-center gap-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition"
+          >
+            <Plus className="w-4 h-4" /> Add Item
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {localConfig.items.map((item, index) => (
+            <div key={item.id} className={`p-4 rounded-xl border flex items-start gap-4 ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex flex-col gap-1 mt-1">
+                <button 
+                  onClick={() => handleMoveItem(index, -1)} 
+                  disabled={index === 0}
+                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => handleMoveItem(index, 1)} 
+                  disabled={index === localConfig.items.length - 1}
+                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-gray-500">Name</label>
+                  <input 
+                    type="text" 
+                    value={item.name} 
+                    onChange={e => handleUpdateItem(item.id, { name: e.target.value })} 
+                    className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-gray-500">Link (View ID)</label>
+                  <input 
+                    type="text" 
+                    value={item.link} 
+                    onChange={e => handleUpdateItem(item.id, { link: e.target.value })} 
+                    className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-gray-500">Icon</label>
+                  <select 
+                    value={item.icon} 
+                    onChange={e => handleUpdateItem(item.id, { icon: e.target.value })} 
+                    className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`}
+                  >
+                    {availableIcons.map(icon => (
+                      <option key={icon} value={icon}>{icon}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => handleRemoveItem(item.id)}
+                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition mt-5"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex justify-end">
+          <button 
+            onClick={() => onSave(localConfig)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+          >
+            <Save className="w-5 h-5" />
+            {t.save}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

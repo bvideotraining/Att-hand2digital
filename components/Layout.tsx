@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { TRANSLATIONS } from '../constants';
-import { User, Role } from '../types';
+import { User, Role, AppMenuConfig } from '../types';
 import { 
   FileText, 
   LayoutDashboard, 
@@ -16,6 +16,16 @@ import {
   Save 
 } from 'lucide-react';
 
+// Map icon names to actual components
+const IconMap: Record<string, React.FC<any>> = {
+  LayoutDashboard,
+  BookOpen,
+  ImageIcon,
+  Users,
+  Globe,
+  FileText
+};
+
 interface LayoutProps {
   children: React.ReactNode;
   user: User | null;
@@ -29,10 +39,11 @@ interface LayoutProps {
   currentView: string;
   syncStatus?: string | null;
   siteSettings?: import('../types').SiteSettings;
+  appMenuConfig?: AppMenuConfig;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView, syncStatus, siteSettings
+  children, user, language, darkMode, onLogout, onLanguageToggle, onThemeToggle, onSaveDatabase, onNavigate, currentView, syncStatus, siteSettings, appMenuConfig
 }) => {
   // Defensive translation access
   const t = useMemo(() => {
@@ -40,8 +51,24 @@ const Layout: React.FC<LayoutProps> = ({
     return TRANSLATIONS[safeLang] || TRANSLATIONS.ar;
   }, [language]);
 
+  const defaultMenuConfig: AppMenuConfig = {
+    appName: 'HandAttend AI',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '14px',
+    fontColor: darkMode ? '#ffffff' : '#1f2937',
+    items: [
+      { id: 'dashboard', name: t.dashboard, link: 'dashboard', icon: 'LayoutDashboard' },
+      { id: 'dictionary', name: t.manageDictionary, link: 'dictionary', icon: 'BookOpen' },
+      { id: 'samples', name: t.visualDictionary, link: 'samples', icon: 'ImageIcon' },
+      { id: 'users', name: t.userManagement, link: 'users', icon: 'Users' },
+      { id: 'cms', name: 'CMS', link: 'cms', icon: 'Globe' }
+    ]
+  };
+
+  const menu = appMenuConfig || defaultMenuConfig;
+
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`}>
+    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`} style={{ fontFamily: menu.fontFamily }}>
       <nav className={`${darkMode ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-gray-200'} border-b px-4 py-3 sticky top-0 z-50 backdrop-blur-md`}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -49,55 +76,38 @@ const Layout: React.FC<LayoutProps> = ({
               className="flex items-center gap-3 cursor-pointer group" 
               onClick={() => onNavigate('dashboard')}
             >
-              <div className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight hidden lg:block">
-                HandAttend AI
+              {menu.logoImage ? (
+                <img src={menu.logoImage} alt={menu.appName} className="h-8 w-auto object-contain" />
+              ) : (
+                <div className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                  <FileText className="w-6 h-6" />
+                </div>
+              )}
+              <h1 className="text-xl font-bold tracking-tight hidden lg:block" style={{ color: menu.fontColor }}>
+                {menu.appName}
               </h1>
             </div>
 
             {user && (
               <div className="hidden md:flex items-center gap-1">
-                <button 
-                  onClick={() => onNavigate('dashboard')}
-                  className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'dashboard' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  {t.dashboard}
-                </button>
-                {user.role === 'Admin' && (
-                  <>
+                {menu.items.map(item => {
+                  // Only show admin items to admins
+                  if (user.role !== 'Admin' && item.id !== 'dashboard') return null;
+                  
+                  const IconComponent = IconMap[item.icon] || FileText;
+                  
+                  return (
                     <button 
-                      onClick={() => onNavigate('dictionary')}
-                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'dictionary' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                      key={item.id}
+                      onClick={() => onNavigate(item.link)}
+                      style={{ fontSize: menu.fontSize, color: currentView === item.link ? undefined : menu.fontColor }}
+                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === item.link ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
-                      <BookOpen className="w-4 h-4" />
-                      {t.manageDictionary}
+                      <IconComponent className="w-4 h-4" />
+                      {item.name}
                     </button>
-                    <button 
-                      onClick={() => onNavigate('samples')}
-                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'samples' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      {t.visualDictionary}
-                    </button>
-                    <button 
-                      onClick={() => onNavigate('users')}
-                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'users' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                    >
-                      <Users className="w-4 h-4" />
-                      {t.userManagement}
-                    </button>
-                    <button 
-                      onClick={() => onNavigate('cms')}
-                      className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${currentView === 'cms' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                    >
-                      <Globe className="w-4 h-4" />
-                      CMS
-                    </button>
-                  </>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>

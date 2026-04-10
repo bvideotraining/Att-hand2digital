@@ -161,6 +161,19 @@ const INITIAL_STATE: AppState = {
     signInBorderColor: '#2563eb',
     signInHoverBgColor: '#1d4ed8',
     signInStyle: 'solid'
+  },
+  appMenu: {
+    appName: 'HandAttend AI',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '14px',
+    fontColor: '#1f2937',
+    items: [
+      { id: 'dashboard', name: 'Dashboard', link: 'dashboard', icon: 'LayoutDashboard' },
+      { id: 'dictionary', name: 'Manage Dictionary', link: 'dictionary', icon: 'BookOpen' },
+      { id: 'samples', name: 'Visual Dictionary', link: 'samples', icon: 'ImageIcon' },
+      { id: 'users', name: 'User Management', link: 'users', icon: 'Users' },
+      { id: 'cms', name: 'CMS', link: 'cms', icon: 'Globe' }
+    ]
   }
 };
 
@@ -1226,6 +1239,7 @@ const App: React.FC = () => {
             language={state.language} 
             darkMode={state.darkMode} 
             siteSettings={state.siteSettings}
+            appMenuConfig={state.appMenu}
             onLogout={handleLogout} 
             onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))} 
             onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))} 
@@ -1238,7 +1252,7 @@ const App: React.FC = () => {
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
-             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} /> :
+             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} appMenuConfig={state.appMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} /> :
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}

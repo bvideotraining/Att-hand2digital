@@ -184,21 +184,53 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block
   switch (block.type) {
     case 'hero': {
       const b = block as HeroBlock;
-      return (
-        <section className={`relative pt-32 pb-20 px-4 overflow-hidden ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
-          <div className="max-w-7xl mx-auto text-center relative z-10">
+      const isSplit = b.template === 'split';
+      const isImageBg = b.template === 'imageBg';
+      const isGradient = b.template === 'gradient';
+      
+      const getFontFamily = (font?: string) => {
+        switch(font) {
+          case 'Outfit': return '"Outfit", sans-serif';
+          case 'Space Grotesk': return '"Space Grotesk", sans-serif';
+          case 'Playfair Display': return '"Playfair Display", serif';
+          case 'JetBrains Mono': return '"JetBrains Mono", monospace';
+          default: return '"Inter", sans-serif';
+        }
+      };
+
+      const content = (
+        <div className={`max-w-7xl mx-auto relative z-10 ${isSplit ? 'grid grid-cols-1 lg:grid-cols-2 gap-12 items-center text-left' : 'text-center'}`}>
+          <div className={isSplit ? 'order-2 lg:order-1' : ''}>
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]"
+              className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1] flex flex-wrap gap-x-4 justify-center lg:justify-start"
+              style={{ 
+                fontFamily: getFontFamily(b.titleFont),
+                color: b.titleColor || (darkMode ? '#ffffff' : '#111827'),
+                justifyContent: isSplit ? 'flex-start' : 'center'
+              }}
             >
-              {b.title}
+              <span>{b.title}</span>
+              {b.showSecondTitle && b.secondTitle && (
+                <span style={{ 
+                  fontFamily: getFontFamily(b.secondTitleFont),
+                  color: b.secondTitleColor || '#3b82f6'
+                }}>
+                  {b.secondTitle}
+                </span>
+              )}
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-lg md:text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed"
+              className="text-lg md:text-xl max-w-3xl mb-10 leading-relaxed"
+              style={{ 
+                color: b.subtitleColor || (darkMode ? '#9ca3af' : '#6b7280'),
+                marginLeft: isSplit ? '0' : 'auto',
+                marginRight: isSplit ? '0' : 'auto'
+              }}
             >
               {b.subtitle}
             </motion.p>
@@ -206,16 +238,79 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
+              className={`flex flex-wrap gap-4 ${isSplit ? 'justify-start' : 'justify-center'}`}
             >
               <a 
                 href={b.buttonLink}
-                className="inline-flex bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-500/30 items-center justify-center gap-2"
+                className="inline-flex px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl items-center justify-center gap-2 hover:scale-105 active:scale-95"
+                style={{ 
+                  backgroundColor: b.buttonBgColor || '#2563eb',
+                  color: b.buttonTextColor || '#ffffff',
+                  boxShadow: `0 20px 25px -5px ${b.buttonBgColor || '#2563eb'}40`
+                }}
               >
                 {b.buttonText}
                 <ArrowRight className="w-5 h-5" />
               </a>
+              {b.showSecondButton && b.secondButtonText && (
+                <a 
+                  href={b.secondButtonLink}
+                  className="inline-flex px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl items-center justify-center gap-2 hover:scale-105 active:scale-95"
+                  style={{ 
+                    backgroundColor: b.secondButtonBgColor || (darkMode ? '#1f2937' : '#f3f4f6'),
+                    color: b.secondButtonTextColor || (darkMode ? '#ffffff' : '#111827'),
+                    boxShadow: darkMode ? 'none' : '0 10px 15px -3px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  {b.secondButtonText}
+                </a>
+              )}
             </motion.div>
           </div>
+          {isSplit && b.backgroundImage && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="order-1 lg:order-2 h-full flex items-center"
+            >
+              <div className="relative w-full">
+                <div className="absolute -inset-4 bg-blue-500/10 rounded-[3rem] blur-2xl" />
+                <img 
+                  src={b.backgroundImage} 
+                  alt="Hero" 
+                  className="relative w-full h-full min-h-[300px] lg:min-h-[500px] rounded-[2.5rem] shadow-2xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </motion.div>
+          )}
+        </div>
+      );
+
+      return (
+        <section 
+          className={`relative pt-32 pb-20 px-4 overflow-hidden ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}
+          style={{
+            backgroundImage: isGradient ? `linear-gradient(135deg, ${darkMode ? '#030712' : '#f9fafb'} 0%, ${darkMode ? '#111827' : '#eff6ff'} 100%)` : 'none',
+            minHeight: isSplit ? '80vh' : 'auto',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          {isImageBg && b.backgroundImage && (
+            <>
+              <div 
+                className="absolute inset-0 z-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${b.backgroundImage})` }}
+              />
+              <div 
+                className="absolute inset-0 z-1"
+                style={{ backgroundColor: b.overlayColor || 'rgba(0,0,0,0.5)' }}
+              />
+            </>
+          )}
+          {content}
         </section>
       );
     }
