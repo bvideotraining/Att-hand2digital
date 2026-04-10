@@ -1,9 +1,20 @@
 
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { ExtractionResult, VisualReference } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { ExtractionResult } from "../types";
 
-// The API key is obtained from process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization
+let aiInstance: any = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API Key is missing. Please set VITE_GEMINI_API_KEY in your environment variables.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+}
 
 const SYSTEM_PROMPT = `
 You are a specialized Arabic Handwriting Analyst for HR Attendance systems. 
@@ -187,14 +198,13 @@ export async function extractAttendanceData(
       });
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+    const response = await getAI().models.generateContent({
+      model: 'gemini-2.0-flash',
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: EXTRACTION_SCHEMA as any,
-        thinkingConfig: { thinkingBudget: 24576 }
       },
     });
 
