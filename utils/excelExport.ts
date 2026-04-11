@@ -9,33 +9,19 @@ export function exportToExcel(data: ExtractionResult, fileName: string) {
   const headerDates = data.employees[0]?.records.map(r => r.date) || [];
   
   const headers = ['اسم الموظف'];
-  headerDates.forEach((date, idx) => {
-    if (idx === 0) {
-      headers.push(`${date} (حضور)`);
-      headers.push(`${date} (ملاحظة حضور)`);
-    } else {
-      headers.push(`${date} (حضور)`);
-      headers.push(`${date} (ملاحظة حضور)`);
-      headers.push(`${date} (انصراف)`);
-      headers.push(`${date} (ملاحظة انصراف)`);
-    }
+  headerDates.forEach((date) => {
+    headers.push(`${date} (حضور)`);
+    headers.push(`${date} (انصراف)`);
   });
   
   const rows: any[] = [headers];
   
   data.employees.forEach(emp => {
     const row: any[] = [emp.employee_name.value];
-    headerDates.forEach((date, idx) => {
+    headerDates.forEach((date) => {
       const record = emp.records.find(r => r.date === date);
-      if (idx === 0) {
-        row.push(record?.check_in?.value || '');
-        row.push(record?.check_in?.note?.value || '');
-      } else {
-        row.push(record?.check_in?.value || '');
-        row.push(record?.check_in?.note?.value || '');
-        row.push(record?.check_out?.value || '');
-        row.push(record?.check_out?.note?.value || '');
-      }
+      row.push(record?.check_in?.value || '');
+      row.push(record?.check_out?.value || '');
     });
     rows.push(row);
   });
