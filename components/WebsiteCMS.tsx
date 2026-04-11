@@ -13,17 +13,24 @@ interface WebsiteCMSProps {
   menuConfig: CmsMenuConfig;
   appMenuConfig?: import('../types').AppMenuConfig;
   siteSettings: SiteSettings;
+  mediaImages?: {id: string, url: string, name: string}[];
   onSavePages: (pages: CmsPage[]) => void;
   onSaveMenu: (menu: CmsMenuConfig) => void;
   onSaveAppMenu?: (menu: import('../types').AppMenuConfig) => void;
   onSaveSettings: (settings: SiteSettings) => void;
+  onChangeMenu?: (menu: CmsMenuConfig) => void;
+  onChangeAppMenu?: (appMenu: import('../types').AppMenuConfig) => void;
+  onChangeSettings?: (settings: SiteSettings) => void;
+  onSaveMediaImage?: (image: {id: string, url: string, name: string}) => void;
+  onDeleteMediaImage?: (id: string) => void;
+  onForceSave?: () => void;
   language: string;
   darkMode: boolean;
   storageMode?: 'local' | 'firebase';
   currentUser?: import('../types').User | null;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, language, darkMode, storageMode, currentUser }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -36,11 +43,74 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   const [mediaLibraryCallback, setMediaLibraryCallback] = useState<((url: string) => void) | null>(null);
   const [pageToDelete, setPageToDelete] = useState<string | null>(null);
   const [backlinksPage, setBacklinksPage] = useState<CmsPage | null>(null);
+
+  // Local states for global save
+  const [localMenu, setLocalMenu] = useState<CmsMenuConfig>(menuConfig);
+  const [localAppMenu, setLocalAppMenu] = useState<import('../types').AppMenuConfig | undefined>(appMenuConfig);
+  const [localSettings, setLocalSettings] = useState<SiteSettings>(siteSettings);
+
+  // Sync local state with props when they change (e.g. after a remote update)
+  React.useEffect(() => {
+    setLocalMenu(menuConfig);
+  }, [menuConfig]);
+
+  React.useEffect(() => {
+    setLocalAppMenu(appMenuConfig);
+  }, [appMenuConfig]);
+
+  React.useEffect(() => {
+    setLocalSettings(siteSettings);
+  }, [siteSettings]);
+
+  const handleMenuChange = (menu: CmsMenuConfig) => {
+    setLocalMenu(menu);
+    if (onChangeMenu) onChangeMenu(menu);
+  };
+
+  const handleAppMenuChange = (appMenu: import('../types').AppMenuConfig) => {
+    setLocalAppMenu(appMenu);
+    if (onChangeAppMenu) onChangeAppMenu(appMenu);
+  };
+
+  const handleSettingsChange = (settings: SiteSettings) => {
+    setLocalSettings(settings);
+    if (onChangeSettings) onChangeSettings(settings);
+  };
+
+  const handleGlobalSave = () => {
+    onSaveMenu(localMenu);
+    if (onSaveAppMenu && localAppMenu) onSaveAppMenu(localAppMenu);
+    onSaveSettings(localSettings);
+    if (onForceSave) onForceSave();
+  };
+
   const [mediaImages, setMediaImages] = useState<{id: string, url: string, name: string}[]>([
     { id: '1', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000', name: 'Office Space' },
     { id: '2', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000', name: 'Team Collaboration' },
     { id: '3', url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1000', name: 'Tech Setup' },
   ]);
+
+  const currentMediaImages = propsMediaImages && propsMediaImages.length > 0 ? propsMediaImages : mediaImages;
+
+  const handleMediaImageAdd = (images: {id: string, url: string, name: string}[]) => {
+    if (onSaveMediaImage) {
+      // Find the new image (assuming it's the first one added)
+      const newImage = images[0];
+      if (newImage && !currentMediaImages.find(img => img.id === newImage.id)) {
+        onSaveMediaImage(newImage);
+      }
+    } else {
+      setMediaImages(images);
+    }
+  };
+
+  const handleMediaImageDelete = (id: string) => {
+    if (onDeleteMediaImage) {
+      onDeleteMediaImage(id);
+    } else {
+      setMediaImages(prev => prev.filter(img => img.id !== id));
+    }
+  };
 
   const handleDirectUpload = async (file: File, callback: (url: string) => void) => {
     try {
@@ -58,7 +128,11 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
       }
 
       const newImage = { id, url, name: file.name };
-      setMediaImages(prev => [newImage, ...prev]);
+      if (onSaveMediaImage) {
+        onSaveMediaImage(newImage);
+      } else {
+        setMediaImages(prev => [newImage, ...prev]);
+      }
       callback(newImage.url);
     } catch (error) {
       console.error("Direct upload failed", error);
@@ -179,8 +253,9 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
             setMediaLibraryCallback(null);
           }}
           darkMode={darkMode} 
-          images={mediaImages}
-          setImages={setMediaImages}
+          images={currentMediaImages}
+          setImages={handleMediaImageAdd}
+          onDeleteImage={handleMediaImageDelete}
           storageMode={storageMode}
           currentUser={currentUser}
         />
@@ -196,6 +271,28 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => {
+              handleGlobalSave();
+              const btn = document.getElementById('cms-save-btn');
+              if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="20 6 9 17 4 12"></polyline></svg> Saved!`;
+                btn.classList.add('bg-green-600', 'text-white', 'border-green-600');
+                btn.classList.remove('border-gray-200', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-800');
+                setTimeout(() => {
+                  btn.innerHTML = originalText;
+                  btn.classList.remove('bg-green-600', 'text-white', 'border-green-600');
+                  btn.classList.add('border-gray-200', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-800');
+                }, 2000);
+              }
+            }}
+            id="cms-save-btn"
+            className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <Save className="w-4 h-4" />
+            {t.saveAllChanges}
+          </button>
           <button 
             onClick={() => setActiveTab('menu')}
             className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'menu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
@@ -301,11 +398,11 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           </div>
         </div>
       ) : activeTab === 'menu' ? (
-        <MenuEditor config={menuConfig} onSave={onSaveMenu} pages={pages} onSavePages={onSavePages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />
-      ) : activeTab === 'appMenu' && onSaveAppMenu ? (
-        <AppMenuEditor config={appMenuConfig} onSave={onSaveAppMenu} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} />
+        <MenuEditor config={localMenu} onSave={onSaveMenu} onChange={handleMenuChange} pages={pages} onSavePages={onSavePages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />
+      ) : activeTab === 'appMenu' && localAppMenu ? (
+        <AppMenuEditor config={localAppMenu} onSave={onSaveAppMenu} onChange={handleAppMenuChange} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} />
       ) : (
-        <SettingsEditor settings={siteSettings} onSave={onSaveSettings} darkMode={darkMode} t={t} language={language} />
+        <SettingsEditor settings={localSettings} onSave={onSaveSettings} onChange={handleSettingsChange} darkMode={darkMode} t={t} language={language} />
       )}
 
       <MediaLibrary 
@@ -320,8 +417,9 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           setMediaLibraryCallback(null);
         }}
         darkMode={darkMode} 
-        images={mediaImages}
-        setImages={setMediaImages}
+        images={currentMediaImages}
+        setImages={handleMediaImageAdd}
+        onDeleteImage={handleMediaImageDelete}
         storageMode={storageMode}
         currentUser={currentUser}
       />
@@ -1041,17 +1139,21 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
 
 // --- App Menu Editor Subcomponent ---
 
-const AppMenuEditor = ({ config, onSave, openMediaLibrary, darkMode, t }: any) => {
-  const [localConfig, setLocalConfig] = useState<import('../types').AppMenuConfig>(config || {
+const AppMenuEditor = ({ config, onSave, onChange, openMediaLibrary, darkMode, t }: any) => {
+  const defaultConfig = useMemo(() => ({
     appName: 'HandAttend AI',
     fontFamily: 'Inter, sans-serif',
     fontSize: '14px',
     fontColor: '#1f2937',
     items: []
-  });
+  }), []);
+
+  const [localConfig, setLocalConfig] = useState<import('../types').AppMenuConfig>(config || defaultConfig);
 
   const handleUpdate = (updates: Partial<import('../types').AppMenuConfig>) => {
-    setLocalConfig(prev => ({ ...prev, ...updates }));
+    const next = { ...localConfig, ...updates };
+    setLocalConfig(next);
+    onChange(next);
   };
 
   const handleAddItem = () => {
@@ -1249,8 +1351,38 @@ const AppMenuEditor = ({ config, onSave, openMediaLibrary, darkMode, t }: any) =
 
 // --- Menu Editor Subcomponent ---
 
-const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, darkMode, t, language }: { config: CmsMenuConfig, onSave: (c: CmsMenuConfig) => void, pages: CmsPage[], onSavePages: (p: CmsPage[]) => void, openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
-  const [localConfig, setLocalConfig] = useState<CmsMenuConfig>(config);
+const MenuEditor = ({ config, onSave, onChange, pages, onSavePages, openMediaLibrary, darkMode, t, language }: { config: CmsMenuConfig, onSave: (c: CmsMenuConfig) => void, onChange: (c: CmsMenuConfig) => void, pages: CmsPage[], onSavePages: (p: CmsPage[]) => void, openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+  const defaultConfig = useMemo<CmsMenuConfig>(() => ({
+    backgroundStyle: 'solid',
+    backgroundColor: '#ffffff',
+    gradientStart: '#3b82f6',
+    gradientEnd: '#2563eb',
+    bottomBorder: 'line',
+    sticky: true,
+    textColor: '#1f2937',
+    hoverColor: '#2563eb',
+    logoText: 'HR ERP',
+    logoPosition: 'left',
+    showSocial: true,
+    socialPosition: 'right',
+    socialLinks: [],
+    showSignIn: true,
+    signInText: 'Sign In',
+    signInLink: '/login',
+    signInBgColor: '#2563eb',
+    signInTextColor: '#ffffff',
+    signInBorderColor: '#2563eb',
+    signInHoverBgColor: '#1d4ed8',
+    signInStyle: 'solid'
+  }), []);
+
+  const [localConfig, setLocalConfig] = useState<CmsMenuConfig>(config || defaultConfig);
+
+  const handleUpdate = (updates: Partial<CmsMenuConfig>) => {
+    const next = { ...localConfig, ...updates };
+    setLocalConfig(next);
+    onChange(next);
+  };
 
   const handleSave = () => {
     onSave(localConfig);
@@ -1263,19 +1395,17 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
 
   const addSocialLink = () => {
     const newLink: SocialLink = { id: Math.random().toString(36).substr(2, 9), platform: 'Facebook', url: '' };
-    setLocalConfig({ ...localConfig, socialLinks: [...localConfig.socialLinks, newLink] });
+    handleUpdate({ socialLinks: [...localConfig.socialLinks, newLink] });
   };
 
   const updateSocialLink = (id: string, updates: Partial<SocialLink>) => {
-    setLocalConfig({
-      ...localConfig,
+    handleUpdate({
       socialLinks: localConfig.socialLinks.map(link => link.id === id ? { ...link, ...updates } : link)
     });
   };
 
   const removeSocialLink = (id: string) => {
-    setLocalConfig({
-      ...localConfig,
+    handleUpdate({
       socialLinks: localConfig.socialLinks.filter(link => link.id !== id)
     });
   };
@@ -1320,7 +1450,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               {['solid', 'gradient', 'transparent', 'glass'].map(s => (
                 <button 
                   key={s}
-                  onClick={() => setLocalConfig({...localConfig, backgroundStyle: s as any})}
+                  onClick={() => handleUpdate({ backgroundStyle: s as any })}
                   className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.backgroundStyle === s ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 >
                   {s === 'glass' ? t.glassBlur : t[s] || s}
@@ -1333,8 +1463,8 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
             <div>
               <label className="block text-sm font-medium mb-1.5">{t.backgroundColor}</label>
               <div className="flex gap-2">
-                <input type="color" value={localConfig.backgroundColor} onChange={e => setLocalConfig({...localConfig, backgroundColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                <input type="text" value={localConfig.backgroundColor} onChange={e => setLocalConfig({...localConfig, backgroundColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <input type="color" value={localConfig.backgroundColor} onChange={e => handleUpdate({ backgroundColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                <input type="text" value={localConfig.backgroundColor} onChange={e => handleUpdate({ backgroundColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
               </div>
             </div>
           )}
@@ -1344,15 +1474,15 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               <div>
                 <label className="block text-sm font-medium mb-1.5">{t.startColor}</label>
                 <div className="flex gap-2">
-                  <input type="color" value={localConfig.gradientStart || '#ffffff'} onChange={e => setLocalConfig({...localConfig, gradientStart: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                  <input type="text" value={localConfig.gradientStart || '#ffffff'} onChange={e => setLocalConfig({...localConfig, gradientStart: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <input type="color" value={localConfig.gradientStart || '#ffffff'} onChange={e => handleUpdate({ gradientStart: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                  <input type="text" value={localConfig.gradientStart || '#ffffff'} onChange={e => handleUpdate({ gradientStart: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">{t.endColor}</label>
                 <div className="flex gap-2">
-                  <input type="color" value={localConfig.gradientEnd || '#000000'} onChange={e => setLocalConfig({...localConfig, gradientEnd: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                  <input type="text" value={localConfig.gradientEnd || '#000000'} onChange={e => setLocalConfig({...localConfig, gradientEnd: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <input type="color" value={localConfig.gradientEnd || '#000000'} onChange={e => handleUpdate({ gradientEnd: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                  <input type="text" value={localConfig.gradientEnd || '#000000'} onChange={e => handleUpdate({ gradientEnd: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                 </div>
               </div>
             </div>
@@ -1364,7 +1494,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               {['none', 'line', 'shadow'].map(b => (
                 <button 
                   key={b}
-                  onClick={() => setLocalConfig({...localConfig, bottomBorder: b as any})}
+                  onClick={() => handleUpdate({ bottomBorder: b as any })}
                   className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.bottomBorder === b ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 >
                   {t[b] || b}
@@ -1378,7 +1508,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               type="checkbox" 
               id="sticky" 
               checked={localConfig.sticky} 
-              onChange={e => setLocalConfig({...localConfig, sticky: e.target.checked})}
+              onChange={e => handleUpdate({ sticky: e.target.checked })}
               className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
             />
             <label htmlFor="sticky" className="text-sm font-medium">{t.stickyHeader}</label>
@@ -1393,15 +1523,15 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
           <div>
             <label className="block text-sm font-medium mb-1.5">{t.textColor}</label>
             <div className="flex gap-2">
-              <input type="color" value={localConfig.textColor} onChange={e => setLocalConfig({...localConfig, textColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-              <input type="text" value={localConfig.textColor} onChange={e => setLocalConfig({...localConfig, textColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <input type="color" value={localConfig.textColor} onChange={e => handleUpdate({ textColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+              <input type="text" value={localConfig.textColor} onChange={e => handleUpdate({ textColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">{t.hoverColor}</label>
             <div className="flex gap-2">
-              <input type="color" value={localConfig.hoverColor} onChange={e => setLocalConfig({...localConfig, hoverColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-              <input type="text" value={localConfig.hoverColor} onChange={e => setLocalConfig({...localConfig, hoverColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <input type="color" value={localConfig.hoverColor} onChange={e => handleUpdate({ hoverColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+              <input type="text" value={localConfig.hoverColor} onChange={e => handleUpdate({ hoverColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
             </div>
           </div>
         </div>
@@ -1416,7 +1546,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               type="checkbox" 
               id="showSignIn" 
               checked={localConfig.showSignIn} 
-              onChange={e => setLocalConfig({...localConfig, showSignIn: e.target.checked})}
+              onChange={e => handleUpdate({ showSignIn: e.target.checked })}
               className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
             />
             <label htmlFor="showSignIn" className="text-sm font-medium">{t.showPrimaryButton}</label>
@@ -1427,11 +1557,11 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
-                  <input type="text" value={localConfig.signInText} onChange={e => setLocalConfig({...localConfig, signInText: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <input type="text" value={localConfig.signInText} onChange={e => handleUpdate({ signInText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.buttonLink}</label>
-                  <input type="text" value={localConfig.signInLink} onChange={e => setLocalConfig({...localConfig, signInLink: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <input type="text" value={localConfig.signInLink} onChange={e => handleUpdate({ signInLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                 </div>
               </div>
 
@@ -1439,15 +1569,15 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.backgroundColor}</label>
                   <div className="flex gap-2">
-                    <input type="color" value={localConfig.signInBgColor} onChange={e => setLocalConfig({...localConfig, signInBgColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                    <input type="text" value={localConfig.signInBgColor} onChange={e => setLocalConfig({...localConfig, signInBgColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <input type="color" value={localConfig.signInBgColor} onChange={e => handleUpdate({ signInBgColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInBgColor} onChange={e => handleUpdate({ signInBgColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.textColor}</label>
                   <div className="flex gap-2">
-                    <input type="color" value={localConfig.signInTextColor} onChange={e => setLocalConfig({...localConfig, signInTextColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                    <input type="text" value={localConfig.signInTextColor} onChange={e => setLocalConfig({...localConfig, signInTextColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <input type="color" value={localConfig.signInTextColor} onChange={e => handleUpdate({ signInTextColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInTextColor} onChange={e => handleUpdate({ signInTextColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                   </div>
                 </div>
               </div>
@@ -1456,15 +1586,15 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.borderColor}</label>
                   <div className="flex gap-2">
-                    <input type="color" value={localConfig.signInBorderColor} onChange={e => setLocalConfig({...localConfig, signInBorderColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                    <input type="text" value={localConfig.signInBorderColor} onChange={e => setLocalConfig({...localConfig, signInBorderColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <input type="color" value={localConfig.signInBorderColor} onChange={e => handleUpdate({ signInBorderColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInBorderColor} onChange={e => handleUpdate({ signInBorderColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.hoverEffectColor}</label>
                   <div className="flex gap-2">
-                    <input type="color" value={localConfig.signInHoverBgColor} onChange={e => setLocalConfig({...localConfig, signInHoverBgColor: e.target.value})} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
-                    <input type="text" value={localConfig.signInHoverBgColor} onChange={e => setLocalConfig({...localConfig, signInHoverBgColor: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <input type="color" value={localConfig.signInHoverBgColor} onChange={e => handleUpdate({ signInHoverBgColor: e.target.value })} className="w-10 h-10 rounded-lg border-0 p-0 overflow-hidden cursor-pointer" />
+                    <input type="text" value={localConfig.signInHoverBgColor} onChange={e => handleUpdate({ signInHoverBgColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
                   </div>
                 </div>
               </div>
@@ -1475,7 +1605,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
                   {['solid', 'outline', 'ghost'].map(s => (
                     <button 
                       key={s}
-                      onClick={() => setLocalConfig({...localConfig, signInStyle: s as any})}
+                      onClick={() => handleUpdate({ signInStyle: s as any })}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.signInStyle === s ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                     >
                       {t[s] || s}
@@ -1494,14 +1624,14 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1.5">{t.logoText}</label>
-            <input type="text" value={localConfig.logoText} onChange={e => setLocalConfig({...localConfig, logoText: e.target.value})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+            <input type="text" value={localConfig.logoText} onChange={e => handleUpdate({ logoText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">{t.logoImageUrl}</label>
             <div className="flex gap-2">
-              <input type="text" value={localConfig.logoImage || ''} onChange={e => setLocalConfig({...localConfig, logoImage: e.target.value})} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://..." />
+              <input type="text" value={localConfig.logoImage || ''} onChange={e => handleUpdate({ logoImage: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://..." />
               <button 
-                onClick={() => openMediaLibrary((url) => setLocalConfig({...localConfig, logoImage: url}))}
+                onClick={() => openMediaLibrary((url) => handleUpdate({ logoImage: url }))}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
               >
                 {t.upload}
@@ -1520,7 +1650,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
               type="checkbox" 
               id="showSocial" 
               checked={localConfig.showSocial} 
-              onChange={e => setLocalConfig({...localConfig, showSocial: e.target.checked})}
+              onChange={e => handleUpdate({ showSocial: e.target.checked })}
               className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
             />
             <label htmlFor="showSocial" className="text-sm font-medium">{t.showSocialIcons}</label>
@@ -1534,7 +1664,7 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
                   {['left', 'right'].map(p => (
                     <button 
                       key={p}
-                      onClick={() => setLocalConfig({...localConfig, socialPosition: p as any})}
+                      onClick={() => handleUpdate({ socialPosition: p as any })}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${localConfig.socialPosition === p ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                     >
                       {t[p] || p}
@@ -1582,17 +1712,19 @@ const MenuEditor = ({ config, onSave, pages, onSavePages, openMediaLibrary, dark
   );
 };
 
-const SettingsEditor = ({ settings, onSave, darkMode, t, language }: { settings: SiteSettings, onSave: (s: SiteSettings) => void, darkMode: boolean, t: any, language: string }) => {
+const SettingsEditor = ({ settings, onSave, onChange, darkMode, t, language }: { settings: SiteSettings, onSave: (s: SiteSettings) => void, onChange: (s: SiteSettings) => void, darkMode: boolean, t: any, language: string }) => {
   const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
 
-  const handleSave = () => {
-    onSave(localSettings);
+  const handleUpdate = (updates: Partial<SiteSettings>) => {
+    const next = { ...localSettings, ...updates };
+    setLocalSettings(next);
+    onChange(next);
   };
 
   return (
     <div className={`max-w-4xl mx-auto space-y-6 animate-in fade-in ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="flex justify-end">
-        <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+        <button onClick={() => onSave(localSettings)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
           <Save className="w-4 h-4" /> {t.saveSettings}
         </button>
       </div>
@@ -1608,7 +1740,7 @@ const SettingsEditor = ({ settings, onSave, darkMode, t, language }: { settings:
             <input 
               type="password" 
               value={localSettings.geminiApiKey || ''} 
-              onChange={e => setLocalSettings({...localSettings, geminiApiKey: e.target.value})} 
+              onChange={e => handleUpdate({ geminiApiKey: e.target.value })} 
               className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
               placeholder="AIzaSy..."
             />
@@ -1623,19 +1755,19 @@ const SettingsEditor = ({ settings, onSave, darkMode, t, language }: { settings:
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">{t.facebook}</label>
-              <input type="text" value={localSettings.socialLinks.facebook} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, facebook: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://facebook.com/..." />
+              <input type="text" value={localSettings.socialLinks.facebook} onChange={e => handleUpdate({ socialLinks: {...localSettings.socialLinks, facebook: e.target.value} })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://facebook.com/..." />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">{t.twitter}</label>
-              <input type="text" value={localSettings.socialLinks.twitter} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, twitter: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://twitter.com/..." />
+              <input type="text" value={localSettings.socialLinks.twitter} onChange={e => handleUpdate({ socialLinks: {...localSettings.socialLinks, twitter: e.target.value} })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://twitter.com/..." />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">{t.linkedin}</label>
-              <input type="text" value={localSettings.socialLinks.linkedin} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, linkedin: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://linkedin.com/in/..." />
+              <input type="text" value={localSettings.socialLinks.linkedin} onChange={e => handleUpdate({ socialLinks: {...localSettings.socialLinks, linkedin: e.target.value} })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://linkedin.com/in/..." />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">{t.github}</label>
-              <input type="text" value={localSettings.socialLinks.github} onChange={e => setLocalSettings({...localSettings, socialLinks: {...localSettings.socialLinks, github: e.target.value}})} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://github.com/..." />
+              <input type="text" value={localSettings.socialLinks.github} onChange={e => handleUpdate({ socialLinks: {...localSettings.socialLinks, github: e.target.value} })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} placeholder="https://github.com/..." />
             </div>
           </div>
         </div>

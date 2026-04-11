@@ -258,4 +258,5 @@ export interface AppState {
   cmsPages?: CmsPage[];
   cmsMenu?: CmsMenuConfig;
   appMenu?: AppMenuConfig;
+  mediaImages?: {id: string, url: string, name: string}[];
 }

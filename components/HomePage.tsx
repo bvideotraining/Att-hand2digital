@@ -22,6 +22,8 @@ interface HomePageProps {
   language: string;
   darkMode: boolean;
   siteSettings?: import('../types').SiteSettings;
+  appMenuConfig?: import('../types').AppMenuConfig;
+  cmsMenuConfig?: import('../types').CmsMenuConfig;
   onGetStarted: () => void;
   onSignIn: () => void;
   onLanguageToggle: () => void;
@@ -33,12 +35,16 @@ const HomePage: React.FC<HomePageProps> = ({
   language, 
   darkMode, 
   siteSettings,
+  appMenuConfig,
+  cmsMenuConfig,
   onGetStarted, 
   onSignIn,
   onLanguageToggle,
   onThemeToggle
 }) => {
   const isRtl = language === 'ar';
+  const appName = cmsMenuConfig?.logoText || appMenuConfig?.appName || 'HandAttend AI';
+  const logoImage = cmsMenuConfig?.logoImage || appMenuConfig?.logoImage;
 
   // Fallback content if siteSettings is not provided
   const heroTitle = isRtl ? (siteSettings?.heroTitleAr || t.heroTitle) : (siteSettings?.heroTitleEn || t.heroTitle);
@@ -60,10 +66,14 @@ const HomePage: React.FC<HomePageProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <FileText className="text-white w-5 h-5" />
-              </div>
-              <span className="text-xl font-bold tracking-tight">HandAttend AI</span>
+              {logoImage ? (
+                <img src={logoImage} alt={appName} className="h-8 w-auto object-contain" />
+              ) : (
+                <div className="bg-blue-600 p-2 rounded-lg">
+                  <FileText className="text-white w-5 h-5" />
+                </div>
+              )}
+              <span className="text-xl font-bold tracking-tight">{appName}</span>
             </div>
             
             <div className="hidden md:flex items-center gap-8">

@@ -12,7 +12,32 @@ interface PublicPageProps {
   onSignIn: () => void;
 }
 
-const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig, darkMode, onThemeToggle, onSignIn }) => {
+const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, onThemeToggle, onSignIn }) => {
+  const menuConfig = React.useMemo(() => ({
+    backgroundStyle: 'solid' as const,
+    backgroundColor: '#ffffff',
+    gradientStart: '#3b82f6',
+    gradientEnd: '#2563eb',
+    bottomBorder: 'line' as const,
+    sticky: true,
+    textColor: '#1f2937',
+    hoverColor: '#2563eb',
+    logoText: 'HR ERP',
+    logoPosition: 'left' as const,
+    showSocial: true,
+    socialPosition: 'right' as const,
+    socialLinks: [],
+    showSignIn: true,
+    signInText: 'Sign In',
+    signInLink: '/login',
+    signInBgColor: '#2563eb',
+    signInTextColor: '#ffffff',
+    signInBorderColor: '#2563eb',
+    signInHoverBgColor: '#1d4ed8',
+    signInStyle: 'solid' as const,
+    ...(rawMenuConfig || {})
+  }), [rawMenuConfig]);
+
   const getNavBackground = () => {
     switch (menuConfig.backgroundStyle) {
       case 'solid': return { backgroundColor: menuConfig.backgroundColor };

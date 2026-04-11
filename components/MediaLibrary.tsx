@@ -9,11 +9,12 @@ interface MediaLibraryProps {
   darkMode: boolean;
   images?: {id: string, url: string, name: string}[];
   setImages?: (images: {id: string, url: string, name: string}[]) => void;
+  onDeleteImage?: (id: string) => void;
   storageMode?: 'local' | 'firebase';
   currentUser?: import('../types').User | null;
 }
 
-const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, darkMode, images: propsImages, setImages: propsSetImages, storageMode, currentUser }) => {
+const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, darkMode, images: propsImages, setImages: propsSetImages, onDeleteImage, storageMode, currentUser }) => {
   const [internalImages, setInternalImages] = useState<{id: string, url: string, name: string}[]>([
     { id: '1', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000', name: 'Office Space' },
     { id: '2', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000', name: 'Team Collaboration' },
@@ -64,7 +65,11 @@ const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, 
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setImages(images.filter(img => img.id !== id));
+    if (onDeleteImage) {
+      onDeleteImage(id);
+    } else {
+      setImages(images.filter(img => img.id !== id));
+    }
     if (selectedId === id) setSelectedId(null);
   };
 

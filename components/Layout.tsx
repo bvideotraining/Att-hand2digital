@@ -51,7 +51,7 @@ const Layout: React.FC<LayoutProps> = ({
     return TRANSLATIONS[safeLang] || TRANSLATIONS.ar;
   }, [language]);
 
-  const defaultMenuConfig: AppMenuConfig = {
+  const defaultMenuConfig: AppMenuConfig = useMemo(() => ({
     appName: 'HandAttend AI',
     fontFamily: 'Inter, sans-serif',
     fontSize: '14px',
@@ -63,9 +63,12 @@ const Layout: React.FC<LayoutProps> = ({
       { id: 'users', name: t.userManagement, link: 'users', icon: 'Users' },
       { id: 'cms', name: 'CMS', link: 'cms', icon: 'Globe' }
     ]
-  };
+  }), [darkMode, t]);
 
-  const menu = appMenuConfig || defaultMenuConfig;
+  const menu = useMemo(() => ({
+    ...defaultMenuConfig,
+    ...(appMenuConfig || {})
+  }), [appMenuConfig, defaultMenuConfig]);
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`} style={{ fontFamily: menu.fontFamily }}>
@@ -165,7 +168,7 @@ const Layout: React.FC<LayoutProps> = ({
 
       <footer className={`py-8 border-t text-center text-sm ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-500' : 'bg-white border-gray-100 text-gray-500'}`}>
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p>&copy; {new Date().getFullYear()} HandAttend AI. {t.copyright_footer || 'Secure Dual-Persistence Mode.'}</p>
+          <p>&copy; {new Date().getFullYear()} {menu.appName}. {t.copyright_footer || 'Secure Dual-Persistence Mode.'}</p>
           <div className="flex gap-6 items-center">
             {siteSettings?.socialLinks?.facebook && <a href={siteSettings.socialLinks.facebook} target="_blank" rel="noreferrer" className="hover:text-blue-600 transition-colors">Facebook</a>}
             {siteSettings?.socialLinks?.twitter && <a href={siteSettings.socialLinks.twitter} target="_blank" rel="noreferrer" className="hover:text-blue-400 transition-colors">Twitter</a>}

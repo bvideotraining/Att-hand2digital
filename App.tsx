@@ -12,7 +12,7 @@ import { extractAttendanceData } from './services/geminiService';
 import { uploadToFirebaseStorage } from './services/storageService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc, getDocFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   FileText, 
@@ -751,6 +751,19 @@ const App: React.FC = () => {
     if (state.storageMode === 'firebase' && currentUser && isAuthReady) {
       const uid = currentUser.id;
       let unsubFiles: any, unsubUsers: any, unsubDict: any, unsubVisual: any, unsubHistory: any;
+      let unsubPages: any, unsubMenu: any, unsubAppMenu: any, unsubSite: any, unsubMedia: any;
+
+      // Test connection to Firestore
+      const testConnection = async () => {
+        try {
+          await getDocFromServer(doc(db, 'users', uid));
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('the client is offline')) {
+            console.error("Please check your Firebase configuration. The client is offline.");
+          }
+        }
+      };
+      testConnection();
 
       const setupListeners = () => {
         unsubFiles = onSnapshot(collection(db, `users/${uid}/files`), (snap) => {
@@ -761,25 +774,25 @@ const App: React.FC = () => {
         unsubUsers = onSnapshot(collection(db, `users/${uid}/workspace_users`), (snap) => {
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, users: snap.docs.map(d => d.data() as any) }));
-        });
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/workspace_users`));
 
         unsubDict = onSnapshot(collection(db, `users/${uid}/nameDictionary`), (snap) => {
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, nameDictionary: snap.docs.map(d => d.data().name) }));
-        });
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/nameDictionary`));
 
         unsubVisual = onSnapshot(collection(db, `users/${uid}/visualReferences`), (snap) => {
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, visualReferences: snap.docs.map(d => d.data() as any) }));
-        });
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/visualReferences`));
 
         unsubHistory = onSnapshot(collection(db, `users/${uid}/correctionHistory`), (snap) => {
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, correctionHistory: snap.docs.map(d => d.data() as any) }));
-        });
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/correctionHistory`));
 
         // Add listeners for CMS and Settings
-        onSnapshot(doc(db, `users/${uid}/cms`, 'pages'), (doc) => {
+        unsubPages = onSnapshot(doc(db, `users/${uid}/cms`, 'pages'), (doc) => {
           if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             const data = doc.data();
@@ -795,28 +808,33 @@ const App: React.FC = () => {
             }
             setState(p => ({ ...p, cmsPages: pages }));
           }
-        });
+        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/pages`));
 
-        onSnapshot(doc(db, `users/${uid}/cms`, 'menu'), (doc) => {
+        unsubMenu = onSnapshot(doc(db, `users/${uid}/cms`, 'menu'), (doc) => {
           if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, cmsMenu: doc.data() as any }));
           }
-        });
+        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/menu`));
 
-        onSnapshot(doc(db, `users/${uid}/cms`, 'appMenu'), (doc) => {
+        unsubAppMenu = onSnapshot(doc(db, `users/${uid}/cms`, 'appMenu'), (doc) => {
           if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, appMenu: doc.data() as any }));
           }
-        });
+        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/appMenu`));
 
-        onSnapshot(doc(db, `users/${uid}/settings`, 'site'), (doc) => {
+        unsubSite = onSnapshot(doc(db, `users/${uid}/settings`, 'site'), (doc) => {
           if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, siteSettings: doc.data() as any }));
           }
-        });
+        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/settings/site`));
+
+        unsubMedia = onSnapshot(collection(db, `users/${uid}/mediaImages`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
+          setState(p => ({ ...p, mediaImages: snap.docs.map(d => d.data() as any) }));
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/mediaImages`));
 
         setState(p => ({ ...p, isDatabaseLoaded: true, storageMode: 'firebase' }));
       };
@@ -859,6 +877,11 @@ const App: React.FC = () => {
         if (unsubDict) unsubDict();
         if (unsubVisual) unsubVisual();
         if (unsubHistory) unsubHistory();
+        if (unsubPages) unsubPages();
+        if (unsubMenu) unsubMenu();
+        if (unsubAppMenu) unsubAppMenu();
+        if (unsubSite) unsubSite();
+        if (unsubMedia) unsubMedia();
       };
     }
   }, [state.storageMode, currentUser, isAuthReady]);
@@ -885,12 +908,13 @@ const App: React.FC = () => {
     docId: string, 
     data: any, 
     isDelete: boolean = false,
-    localStateUpdater: (prev: AppState) => AppState
+    localStateUpdater: (prev: AppState) => AppState,
+    skipFirestore: boolean = false
   ) => {
     // Optimistically update local state first
     setState(localStateUpdater);
 
-    if (state.storageMode === 'firebase' && currentUser) {
+    if (!skipFirestore && state.storageMode === 'firebase' && currentUser) {
       const docRef = doc(db, `users/${currentUser.id}/${collectionName}`, docId);
       try {
         if (isDelete) {
@@ -1438,6 +1462,8 @@ const App: React.FC = () => {
                 language={state.language} 
                 darkMode={state.darkMode} 
                 siteSettings={state.siteSettings}
+                appMenuConfig={state.appMenu}
+                cmsMenuConfig={state.cmsMenu}
                 onGetStarted={() => setShowLanding(false)} 
                 onSignIn={() => setShowLanding(false)}
                 onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
@@ -1452,6 +1478,8 @@ const App: React.FC = () => {
               onFirebaseSignUp={handleFirebaseEmailSignUp}
               language={state.language} 
               darkMode={state.darkMode}
+              appMenuConfig={state.appMenu}
+              cmsMenuConfig={state.cmsMenu}
               onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
               onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
               isDatabaseLoaded={state.isDatabaseLoaded} 
@@ -1474,7 +1502,10 @@ const App: React.FC = () => {
             onLogout={handleLogout} 
             onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))} 
             onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))} 
-            onSaveDatabase={state.storageMode === 'firebase' ? () => {} : (globalFileHandle ? () => saveToSystemFile(state) : triggerManualSync)} 
+            onSaveDatabase={state.storageMode === 'firebase' ? () => {
+              setSyncStatus('synced');
+              setTimeout(() => setSyncStatus(null), 2000);
+            } : (globalFileHandle ? () => saveToSystemFile(state) : triggerManualSync)} 
             onNavigate={setCurrentView} 
             currentView={currentView} 
             syncStatus={syncStatus}
@@ -1482,8 +1513,31 @@ const App: React.FC = () => {
             {currentView === 'dashboard' ? <DashboardPage files={state.files} onUpload={handleUpload} onDelete={handleDeleteFile} language={state.language} darkMode={state.darkMode} onFileSelect={(f: any) => { setSelectedFileId(f.id); setCurrentView('review'); }} storageMode={state.storageMode} onImportToCloud={handleImportToCloud} onSyncToCloud={handleSyncCurrentToCloud} isSyncing={isSyncing} syncStatus={syncStatus} /> : 
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
+                           currentView === 'cms' ? <WebsiteCMS 
+                pages={state.cmsPages || []} 
+                menuConfig={state.cmsMenu!} 
+                appMenuConfig={state.appMenu!} 
+                siteSettings={state.siteSettings!} 
+                mediaImages={state.mediaImages || []} 
+                onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} 
+                onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} 
+                onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} 
+                onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} 
+                onChangeMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}), true)}
+                onChangeAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}), true)}
+                onChangeSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}), true)}
+                onSaveMediaImage={(image) => updateStateAndFirestore('mediaImages', image.id, image, false, p => ({...p, mediaImages: [image, ...(p.mediaImages || [])]}))} 
+                onDeleteMediaImage={(id) => updateStateAndFirestore('mediaImages', id, null, true, p => ({...p, mediaImages: (p.mediaImages || []).filter(img => img.id !== id)}))} 
+                onForceSave={state.storageMode === 'firebase' ? () => {
+                  setSyncStatus('synced');
+                  setTimeout(() => setSyncStatus(null), 2000);
+                } : (globalFileHandle ? () => saveToSystemFile(state) : triggerManualSync)} 
+                language={state.language} 
+                darkMode={state.darkMode} 
+                storageMode={state.storageMode} 
+                currentUser={currentUser} 
+              /> :
              currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
-             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} appMenuConfig={state.appMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} storageMode={state.storageMode} currentUser={currentUser} /> :
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}
@@ -1499,6 +1553,8 @@ const LoginPage = ({
   onFirebaseSignUp, 
   language, 
   darkMode,
+  appMenuConfig,
+  cmsMenuConfig,
   onLanguageToggle,
   onThemeToggle,
   isDatabaseLoaded, 
@@ -1515,6 +1571,8 @@ const LoginPage = ({
   const [mode, setMode] = useState<'local' | 'firebase'>('local');
   const t = useTranslation(language);
   const isRtl = language === 'ar';
+  const appName = cmsMenuConfig?.logoText || appMenuConfig?.appName || 'HandAttend AI';
+  const logoImage = cmsMenuConfig?.logoImage || appMenuConfig?.logoImage;
 
   const handleFormLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1553,10 +1611,16 @@ const LoginPage = ({
         )}
         <div className="p-8 pt-16">
           <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg">
-              <FileText className="w-8 h-8" />
-            </div>
-            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.title}</h2>
+            {logoImage ? (
+              <div className="mb-4 flex justify-center">
+                <img src={logoImage} alt={appName} className="h-16 w-auto object-contain" referrerPolicy="no-referrer" />
+              </div>
+            ) : (
+              <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg">
+                <FileText className="w-8 h-8" />
+              </div>
+            )}
+            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{appName}</h2>
             <p className="text-gray-500 dark:text-gray-400 mt-2">{t.subtitle}</p>
           </div>
 
