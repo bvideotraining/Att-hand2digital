@@ -1,37 +1,64 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Trash2, Check } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Trash2, Check, Loader2 } from 'lucide-react';
+import { uploadToFirebaseStorage } from '../services/storageService';
 
 interface MediaLibraryProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect?: (url: string) => void;
   darkMode: boolean;
+  images?: {id: string, url: string, name: string}[];
+  setImages?: (images: {id: string, url: string, name: string}[]) => void;
+  storageMode?: 'local' | 'firebase';
+  currentUser?: import('../types').User | null;
 }
 
-const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, darkMode }) => {
-  const [images, setImages] = useState<{id: string, url: string, name: string}[]>([
+const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, darkMode, images: propsImages, setImages: propsSetImages, storageMode, currentUser }) => {
+  const [internalImages, setInternalImages] = useState<{id: string, url: string, name: string}[]>([
     { id: '1', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000', name: 'Office Space' },
     { id: '2', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000', name: 'Team Collaboration' },
     { id: '3', url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1000', name: 'Tech Setup' },
   ]);
+  
+  const images = propsImages || internalImages;
+  const setImages = propsSetImages || setInternalImages;
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      setIsUploading(true);
+      try {
+        let url = '';
+        const id = Math.random().toString(36).substr(2, 9);
+        
+        if (storageMode === 'firebase' && currentUser) {
+          url = await uploadToFirebaseStorage(file, `users/${currentUser.id}/media/${id}_${file.name}`);
+        } else {
+          url = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+        }
+
         const newImage = {
-          id: Math.random().toString(36).substr(2, 9),
-          url: reader.result as string,
+          id,
+          url,
           name: file.name
         };
         setImages([newImage, ...images]);
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Upload failed", error);
+        alert("Upload failed. Please try again.");
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -65,9 +92,11 @@ const MediaLibrary: React.FC<MediaLibraryProps> = ({ isOpen, onClose, onSelect, 
             <input type="file" ref={fileInputRef} onChange={handleUpload} accept="image/*" className="hidden" />
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 px-4 py-2 rounded-xl font-bold transition flex items-center gap-2"
+              disabled={isUploading}
+              className="bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-600 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 px-4 py-2 rounded-xl font-bold transition flex items-center gap-2"
             >
-              <Upload className="w-4 h-4" /> Upload Image
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {isUploading ? 'Uploading...' : 'Upload Image'}
             </button>
           </div>
 

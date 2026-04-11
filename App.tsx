@@ -9,6 +9,7 @@ import HomePage from './components/HomePage';
 import WebsiteCMS from './components/WebsiteCMS';
 import PublicPage from './components/PublicPage';
 import { extractAttendanceData } from './services/geminiService';
+import { uploadToFirebaseStorage } from './services/storageService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore';
@@ -36,7 +37,10 @@ import {
   Info,
   Lightbulb,
   Image as ImageIcon,
-  Upload
+  Upload,
+  RefreshCw,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 
 // --- Error Handling for Firestore ---
@@ -74,6 +78,19 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
 // --- Global File Handle Reference (Non-serializable) ---
 let globalFileHandle: any = null;
 const LOCAL_STORAGE_KEY = 'arabic_attendance_db_backup';
+
+const removeUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, removeUndefined(v)])
+    );
+  }
+  return obj;
+};
 
 const DEFAULT_ADMIN: User = { 
   id: 'admin', 
@@ -466,11 +483,12 @@ const UserManagementPage = ({ users = [], onAdd, onUpdate, onDelete, language, d
   );
 };
 
-const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onFileSelect, storageMode, onImportToCloud }: any) => {
+const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onFileSelect, storageMode, onImportToCloud, onSyncToCloud, isSyncing, syncStatus }: any) => {
   const t = useTranslation(language);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const years = Array.from({ length: 11 }, (_, i) => 2024 + i);
   const handleFileChange = (e: any) => { 
     if (e.target.files?.[0]) {
@@ -485,36 +503,69 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
           <h2 className="text-3xl font-extrabold tracking-tight">{t.dashboard}</h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {storageMode === 'firebase' && (
-            <button 
-              onClick={onImportToCloud}
-              className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-3 rounded-xl font-bold transition shadow-sm inline-flex items-center gap-2"
-              title={t.importToCloudHelp}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className={`flex items-center p-1 rounded-xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-lg transition ${viewMode === 'grid' ? (darkMode ? 'bg-gray-800 text-blue-400' : 'bg-blue-50 text-blue-600') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              title="Grid View"
             >
-              <Cloud className="w-5 h-5" />
-              <span className="hidden sm:inline">{t.importToCloud}</span>
+              <LayoutGrid className="w-4 h-4" />
             </button>
-          )}
-          <div className={`flex flex-wrap items-center gap-4 p-2 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.selectYear}</label>
-              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none`}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.startDate} ({t.optional})</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} text-sm focus:ring-2 focus:ring-blue-500 outline-none`} />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.endDate} ({t.optional})</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} text-sm focus:ring-2 focus:ring-blue-500 outline-none`} />
-            </div>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition ${viewMode === 'list' ? (darkMode ? 'bg-gray-800 text-blue-400' : 'bg-blue-50 text-blue-600') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              title="List View"
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
-          <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 inline-flex items-center gap-2">
-            <Upload className="w-5 h-5" />
+          {storageMode === 'firebase' && (
+            <>
+              <button 
+                onClick={onSyncToCloud}
+                disabled={isSyncing}
+                className={`${isSyncing ? 'bg-gray-100 text-gray-400' : 'bg-green-100 hover:bg-green-200 text-green-700'} px-3 py-1.5 rounded-lg font-bold transition shadow-sm inline-flex items-center gap-2 text-[12px]`}
+                title="Sync current local data to cloud"
+              >
+                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                <span>{isSyncing ? 'Syncing...' : 'Sync to Cloud'}</span>
+              </button>
+              {syncStatus === 'synced' && (
+                <span className="text-green-600 text-xs font-bold animate-in fade-in">Synced successfully!</span>
+              )}
+              {syncStatus === 'error' && (
+                <span className="text-red-600 text-xs font-bold animate-in fade-in">Sync failed!</span>
+              )}
+              <button 
+                onClick={onImportToCloud}
+                className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-lg font-bold transition shadow-sm inline-flex items-center gap-2 text-[12px]"
+                title={t.importToCloudHelp}
+              >
+                <Cloud className="w-4 h-4" />
+                <span>{t.importToCloud}</span>
+              </button>
+            </>
+          )}
+          <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-lg shadow-blue-500/20 inline-flex items-center gap-2 text-[12px]">
+            <Upload className="w-4 h-4" />
             {t.upload}
             <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
           </label>
+        </div>
+      </div>
+      <div className={`p-4 rounded-2xl flex flex-wrap items-center gap-4 border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.selectYear}</label>
+          <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none`}>{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.startDate} ({t.optional})</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} text-sm focus:ring-2 focus:ring-blue-500 outline-none`} />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t.endDate} ({t.optional})</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'} text-sm focus:ring-2 focus:ring-blue-500 outline-none`} />
         </div>
       </div>
       <div className={`p-4 rounded-2xl flex items-center gap-3 text-sm ${darkMode ? 'bg-blue-900/20 border-blue-800/30 text-blue-300' : 'bg-blue-50 border-blue-100 text-blue-800'}`}>
@@ -531,14 +582,15 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
           <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8">{t.noFilesMsg}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
           {files.map((file: any) => (
             <div 
               key={file.id} 
-              className={`group rounded-3xl border transition-all duration-300 hover:shadow-xl ${darkMode ? 'bg-gray-900 border-gray-800 hover:border-blue-500/50' : 'bg-white border-gray-100 hover:border-blue-200'}`}
+              className={`group rounded-3xl border transition-all duration-300 hover:shadow-xl ${darkMode ? 'bg-gray-900 border-gray-800 hover:border-blue-500/50' : 'bg-white border-gray-100 hover:border-blue-200'} ${viewMode === 'list' ? 'flex items-center justify-between p-4' : ''}`}
             >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
+              {viewMode === 'grid' ? (
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-blue-50'} text-blue-600`}>
                     <FileText className="w-6 h-6" />
                   </div>
@@ -585,6 +637,55 @@ const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onF
                   </button>
                 </div>
               </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className={`p-3 rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-blue-50'} text-blue-600 shrink-0`}>
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg truncate" title={file.name}>{file.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-blue-600 font-bold text-sm">{file.year}</span>
+                        <span className="text-gray-300 dark:text-gray-700">•</span>
+                        <span className="text-xs text-gray-500">{new Date(file.upload_date).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="hidden sm:flex items-center gap-2">
+                      {file.status === FileStatus.Completed ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2.5 py-1 rounded-full">
+                          <CheckCircle className="w-3 h-3" /> {t.completed}
+                        </span>
+                      ) : file.status === FileStatus.Processing ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-full">
+                          <Loader2 className="animate-spin w-3 h-3" /> {t.processing}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2.5 py-1 rounded-full">
+                          <AlertTriangle className="w-3 h-3" /> {t.failed}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => onFileSelect(file)}
+                        className={`p-2 rounded-xl transition ${darkMode ? 'bg-gray-800 hover:bg-blue-900/50 text-blue-400' : 'bg-gray-50 hover:bg-blue-50 text-blue-600'}`}
+                        title={t.view}
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => onDelete(file.id)}
+                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -615,7 +716,8 @@ const App: React.FC = () => {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'error' | 'syncing' | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   
   const legacyFileInputRef = useRef<HTMLInputElement>(null);
@@ -652,23 +754,68 @@ const App: React.FC = () => {
 
       const setupListeners = () => {
         unsubFiles = onSnapshot(collection(db, `users/${uid}/files`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, files: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/files`));
 
         unsubUsers = onSnapshot(collection(db, `users/${uid}/workspace_users`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, users: snap.docs.map(d => d.data() as any) }));
         });
 
         unsubDict = onSnapshot(collection(db, `users/${uid}/nameDictionary`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, nameDictionary: snap.docs.map(d => d.data().name) }));
         });
 
         unsubVisual = onSnapshot(collection(db, `users/${uid}/visualReferences`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, visualReferences: snap.docs.map(d => d.data() as any) }));
         });
 
         unsubHistory = onSnapshot(collection(db, `users/${uid}/correctionHistory`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, correctionHistory: snap.docs.map(d => d.data() as any) }));
+        });
+
+        // Add listeners for CMS and Settings
+        onSnapshot(doc(db, `users/${uid}/cms`, 'pages'), (doc) => {
+          if (!doc.exists() && isRemoteUpdate.current) return;
+          if (doc.exists()) {
+            const data = doc.data();
+            let pages = [];
+            if (Array.isArray(data.data)) {
+              pages = data.data;
+            } else {
+              // Backward compatibility for numeric keys object
+              const keys = Object.keys(data).filter(k => !isNaN(Number(k))).sort((a, b) => Number(a) - Number(b));
+              if (keys.length > 0) {
+                pages = keys.map(k => data[k]);
+              }
+            }
+            setState(p => ({ ...p, cmsPages: pages }));
+          }
+        });
+
+        onSnapshot(doc(db, `users/${uid}/cms`, 'menu'), (doc) => {
+          if (!doc.exists() && isRemoteUpdate.current) return;
+          if (doc.exists()) {
+            setState(p => ({ ...p, cmsMenu: doc.data() as any }));
+          }
+        });
+
+        onSnapshot(doc(db, `users/${uid}/cms`, 'appMenu'), (doc) => {
+          if (!doc.exists() && isRemoteUpdate.current) return;
+          if (doc.exists()) {
+            setState(p => ({ ...p, appMenu: doc.data() as any }));
+          }
+        });
+
+        onSnapshot(doc(db, `users/${uid}/settings`, 'site'), (doc) => {
+          if (!doc.exists() && isRemoteUpdate.current) return;
+          if (doc.exists()) {
+            setState(p => ({ ...p, siteSettings: doc.data() as any }));
+          }
         });
 
         setState(p => ({ ...p, isDatabaseLoaded: true, storageMode: 'firebase' }));
@@ -682,19 +829,19 @@ const App: React.FC = () => {
             const data = oldDocSnap.data();
             
             const users = typeof data.users === 'string' ? JSON.parse(data.users) : (data.users || []);
-            for (const u of users) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), u);
+            for (const u of users) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
             
             const files = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || []);
-            for (const f of files) await setDoc(doc(db, `users/${uid}/files`, f.id), f);
+            for (const f of files) await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(f));
             
             const dict = typeof data.nameDictionary === 'string' ? JSON.parse(data.nameDictionary) : (data.nameDictionary || []);
             for (const n of dict) await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
             
             const refs = typeof data.visualReferences === 'string' ? JSON.parse(data.visualReferences) : (data.visualReferences || []);
-            for (const r of refs) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), r);
+            for (const r of refs) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
             
             const history = typeof data.correctionHistory === 'string' ? JSON.parse(data.correctionHistory) : (data.correctionHistory || []);
-            for (const h of history) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), h);
+            for (const h of history) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
             
             await deleteDoc(oldDocRef);
           }
@@ -749,11 +896,11 @@ const App: React.FC = () => {
         if (isDelete) {
           await deleteDoc(docRef);
         } else {
-          let cleanData = { ...data };
-          if (collectionName === 'files' && cleanData.previewUrl) {
+          let cleanData = Array.isArray(data) ? { data } : { ...data };
+          if (collectionName === 'files' && cleanData.previewUrl && cleanData.previewUrl.startsWith('data:')) {
             delete cleanData.previewUrl;
           }
-          await setDoc(docRef, cleanData);
+          await setDoc(docRef, removeUndefined(cleanData), { merge: true });
         }
       } catch (err) {
         handleFirestoreError(err, isDelete ? OperationType.DELETE : OperationType.WRITE, docRef.path);
@@ -807,15 +954,17 @@ const App: React.FC = () => {
     if (isFirebase && currentUser) {
       const uid = currentUser.id;
       try {
-        for (const u of nextUsers) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), u);
+        for (const u of nextUsers) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
         for (const f of nextFiles) {
           let cleanF = { ...f };
-          delete cleanF.previewUrl;
-          await setDoc(doc(db, `users/${uid}/files`, f.id), cleanF);
+          if (cleanF.previewUrl && cleanF.previewUrl.startsWith('data:')) {
+            delete cleanF.previewUrl;
+          }
+          await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(cleanF));
         }
         for (const n of nextDict) await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
-        for (const r of nextVisual) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), r);
-        for (const h of nextHistory) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), h);
+        for (const r of nextVisual) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
+        for (const h of nextHistory) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
       } catch (e) {
         console.error("Import error", e);
       }
@@ -855,15 +1004,90 @@ const App: React.FC = () => {
             const content = event.target?.result as string;
             const imported = JSON.parse(content);
             applyImportedData(imported, file.name, true);
-            alert("Data successfully imported to Firebase Cloud!");
+            console.log("Data successfully imported to Firebase Cloud!");
           } catch (err) {
-            alert("Could not read file. Ensure it is a valid .json file.");
+            console.error("Could not read file. Ensure it is a valid .json file.");
           }
         };
         reader.readAsText(file);
       }
     };
     input.click();
+  };
+
+  const handleSyncCurrentToCloud = async () => {
+    if (!currentUser || state.storageMode !== 'firebase') {
+      console.error("Please ensure you are logged in with Google to sync to the cloud.");
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    const uid = currentUser.id;
+    
+    try {
+      console.log("Starting cloud sync for user:", uid);
+      
+      // 1. Sync Users
+      console.log(`Syncing ${state.users.length} users...`);
+      for (const u of state.users) {
+        await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
+      }
+      
+      // 2. Sync Files (Upload images if they are base64)
+      console.log(`Syncing ${state.files.length} files...`);
+      for (const f of state.files) {
+        let cleanF = { ...f };
+        if (cleanF.previewUrl && cleanF.previewUrl.startsWith('data:')) {
+          try {
+            const response = await fetch(cleanF.previewUrl);
+            const blob = await response.blob();
+            const file = new File([blob], f.name, { type: blob.type });
+            const fileUrl = await uploadToFirebaseStorage(file, `users/${uid}/files/${f.id}_${f.name}`);
+            cleanF.previewUrl = fileUrl;
+          } catch (e) {
+            console.error("Failed to upload image to storage during sync", e);
+            delete cleanF.previewUrl;
+          }
+        }
+        await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(cleanF));
+      }
+      
+      // 3. Sync Dictionary
+      console.log(`Syncing ${state.nameDictionary.length} dictionary entries...`);
+      for (const n of state.nameDictionary) {
+        await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
+      }
+      
+      // 4. Sync Visual References
+      console.log(`Syncing ${state.visualReferences.length} visual references...`);
+      for (const r of state.visualReferences) {
+        await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
+      }
+      
+      // 5. Sync Correction History
+      console.log(`Syncing ${state.correctionHistory.length} correction history items...`);
+      for (const h of state.correctionHistory) {
+        await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
+      }
+      
+      // 6. Sync CMS and Settings
+      console.log("Syncing CMS and settings...");
+      if (state.cmsPages) await setDoc(doc(db, `users/${uid}/cms`, 'pages'), removeUndefined({ data: state.cmsPages }));
+      if (state.cmsMenu) await setDoc(doc(db, `users/${uid}/cms`, 'menu'), removeUndefined(state.cmsMenu));
+      if (state.appMenu) await setDoc(doc(db, `users/${uid}/cms`, 'appMenu'), removeUndefined(state.appMenu));
+      if (state.siteSettings) await setDoc(doc(db, `users/${uid}/settings`, 'site'), removeUndefined(state.siteSettings));
+
+      console.log("Sync completed successfully.");
+      setIsSyncing(false);
+      setSyncStatus('synced');
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch (e) {
+      console.error("Sync error:", e);
+      setIsSyncing(false);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
   };
 
   const handleConnectFile = async () => {
@@ -1093,25 +1317,46 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpload = (file: File, year: number, startDate?: string, endDate?: string) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      const newFile: AttendanceFile = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        uploaded_by: currentUser?.name || 'User',
-        upload_date: new Date().toISOString(),
-        status: FileStatus.Processing,
-        year,
-        startDate,
-        endDate,
-        previewUrl: base64
-      };
-      updateStateAndFirestore('files', newFile.id, newFile, false, p => ({ ...p, files: [newFile, ...p.files] }));
-      processFile(newFile.id, base64, year, file.type, startDate, endDate);
+  const handleUpload = async (file: File, year: number, startDate?: string, endDate?: string) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    let fileUrl = '';
+    let base64 = '';
+
+    // We still need base64 for Gemini processing if we don't want to change the service
+    const getBase64 = (file: File): Promise<string> => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+
+    base64 = await getBase64(file);
+
+    if (state.storageMode === 'firebase' && currentUser) {
+      try {
+        fileUrl = await uploadToFirebaseStorage(file, `users/${currentUser.id}/files/${id}_${file.name}`);
+      } catch (e) {
+        console.error("Storage upload error", e);
+        // Fallback to base64 if storage fails
+        fileUrl = base64;
+      }
+    } else {
+      fileUrl = base64;
+    }
+
+    const newFile: AttendanceFile = {
+      id,
+      name: file.name,
+      uploaded_by: currentUser?.name || 'User',
+      upload_date: new Date().toISOString(),
+      status: FileStatus.Processing,
+      year,
+      previewUrl: fileUrl
     };
-    reader.readAsDataURL(file);
+    if (startDate) newFile.startDate = startDate;
+    if (endDate) newFile.endDate = endDate;
+
+    updateStateAndFirestore('files', newFile.id, newFile, false, p => ({ ...p, files: [newFile, ...p.files] }));
+    processFile(newFile.id, base64, year, file.type, startDate, endDate);
   };
 
   const processFile = async (id: string, base64: string, year: number, mime: string, startDate?: string, endDate?: string) => {
@@ -1128,29 +1373,15 @@ const App: React.FC = () => {
         state.siteSettings?.geminiApiKey
       );
       
-      setState(p => {
-        const updatedFiles = p.files.map(f => f.id === id ? { ...f, status: FileStatus.Completed, data: res } : f);
-        const updatedFile = updatedFiles.find(f => f.id === id);
-        if (updatedFile && p.storageMode === 'firebase' && currentUser) {
-          const docRef = doc(db, `users/${currentUser.id}/files`, id);
-          let cleanData = { ...updatedFile };
-          delete cleanData.previewUrl;
-          setDoc(docRef, cleanData).catch(err => handleFirestoreError(err, OperationType.WRITE, docRef.path));
-        }
-        return { ...p, files: updatedFiles };
-      });
+      // Update status to completed and save data
+      updateStateAndFirestore('files', id, { status: FileStatus.Completed, data: res }, false, p => ({
+        ...p, files: p.files.map(f => f.id === id ? { ...f, status: FileStatus.Completed, data: res } : f)
+      }));
     } catch (e) {
-      setState(p => {
-        const updatedFiles = p.files.map(f => f.id === id ? { ...f, status: FileStatus.Failed } : f);
-        const updatedFile = updatedFiles.find(f => f.id === id);
-        if (updatedFile && p.storageMode === 'firebase' && currentUser) {
-          const docRef = doc(db, `users/${currentUser.id}/files`, id);
-          let cleanData = { ...updatedFile };
-          delete cleanData.previewUrl;
-          setDoc(docRef, cleanData).catch(err => handleFirestoreError(err, OperationType.WRITE, docRef.path));
-        }
-        return { ...p, files: updatedFiles };
-      });
+      console.error("Extraction failed", e);
+      updateStateAndFirestore('files', id, { status: FileStatus.Failed }, false, p => ({
+        ...p, files: p.files.map(f => f.id === id ? { ...f, status: FileStatus.Failed } : f)
+      }));
     }
   };
 
@@ -1248,11 +1479,11 @@ const App: React.FC = () => {
             currentView={currentView} 
             syncStatus={syncStatus}
           >
-            {currentView === 'dashboard' ? <DashboardPage files={state.files} onUpload={handleUpload} onDelete={handleDeleteFile} language={state.language} darkMode={state.darkMode} onFileSelect={(f: any) => { setSelectedFileId(f.id); setCurrentView('review'); }} storageMode={state.storageMode} onImportToCloud={handleImportToCloud} /> : 
+            {currentView === 'dashboard' ? <DashboardPage files={state.files} onUpload={handleUpload} onDelete={handleDeleteFile} language={state.language} darkMode={state.darkMode} onFileSelect={(f: any) => { setSelectedFileId(f.id); setCurrentView('review'); }} storageMode={state.storageMode} onImportToCloud={handleImportToCloud} onSyncToCloud={handleSyncCurrentToCloud} isSyncing={isSyncing} syncStatus={syncStatus} /> : 
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
-             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} appMenuConfig={state.appMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} /> :
+             currentView === 'cms' ? <WebsiteCMS pages={state.cmsPages || []} menuConfig={state.cmsMenu!} appMenuConfig={state.appMenu!} siteSettings={state.siteSettings!} onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} language={state.language} darkMode={state.darkMode} storageMode={state.storageMode} currentUser={currentUser} /> :
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}

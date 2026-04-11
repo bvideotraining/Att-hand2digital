@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExtractionResult } from "../types";
+import { jsonrepair } from "jsonrepair";
 
 // Lazy initialization
 let aiInstance: any = null;
@@ -86,6 +87,8 @@ INSTRUCTIONS:
 - Use the Date Range to ensure the "date" field in the output for each record is accurate.
 - **STRICT ALIGNMENT**: If an employee is absent on a specific date (e.g., 28/02), the record for that date MUST exist with null values. Do NOT skip the date or shift the next day's data into it.
 - Ensure the full range from {{START_DATE}} to {{END_DATE}} is covered.
+- **EXHAUSTIVE EXTRACTION (CRITICAL)**: You MUST extract data for EVERY SINGLE EMPLOYEE listed in the image. Count the rows before you begin. Do not stop early. If there are 10 employees, you must output 10 employee records.
+- **TOKEN SAVING**: Omit the confidence scores ('ic' and 'oc') if you are highly confident in the value, to save output space. Only include them if confidence is below 90.
 `;
 
 const EXTRACTION_SCHEMA = {
@@ -96,58 +99,25 @@ const EXTRACTION_SCHEMA = {
       items: {
         type: Type.OBJECT,
         properties: {
-          employee_name: {
-            type: Type.OBJECT,
-            properties: {
-              value: { type: Type.STRING },
-              confidence: { type: Type.NUMBER }
-            },
-            required: ["value", "confidence"]
-          },
-          records: {
+          n: { type: Type.STRING, description: "Employee name" },
+          nc: { type: Type.NUMBER, description: "Name confidence" },
+          r: {
             type: Type.ARRAY,
+            description: "Records",
             items: {
               type: Type.OBJECT,
               properties: {
-                date: { type: Type.STRING, description: "Date in DD/MM format" },
-                check_in: {
-                  type: Type.OBJECT,
-                  properties: {
-                    value: { type: Type.STRING, nullable: true },
-                    confidence: { type: Type.NUMBER },
-                    note: {
-                      type: Type.OBJECT,
-                      properties: {
-                        value: { type: Type.STRING, nullable: true },
-                        confidence: { type: Type.NUMBER }
-                      },
-                      required: ["confidence"]
-                    }
-                  },
-                  required: ["confidence"]
-                },
-                check_out: {
-                  type: Type.OBJECT,
-                  properties: {
-                    value: { type: Type.STRING, nullable: true },
-                    confidence: { type: Type.NUMBER },
-                    note: {
-                      type: Type.OBJECT,
-                      properties: {
-                        value: { type: Type.STRING, nullable: true },
-                        confidence: { type: Type.NUMBER }
-                      },
-                      required: ["confidence"]
-                    }
-                  },
-                  required: ["confidence"]
-                }
+                d: { type: Type.STRING, description: "Date DD/MM" },
+                i: { type: Type.STRING, nullable: true, description: "Check in time" },
+                ic: { type: Type.NUMBER, description: "Check in confidence", nullable: true },
+                o: { type: Type.STRING, nullable: true, description: "Check out time" },
+                oc: { type: Type.NUMBER, description: "Check out confidence", nullable: true }
               },
-              required: ["date", "check_in", "check_out"]
+              required: ["d"]
             }
           }
         },
-        required: ["employee_name", "records"]
+        required: ["n", "nc", "r"]
       }
     }
   },
@@ -203,23 +173,72 @@ export async function extractAttendanceData(
     });
 
     const response = await getAI(customApiKey).models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: EXTRACTION_SCHEMA as any,
+        maxOutputTokens: 8192,
       },
     });
 
     const text = response.text || '';
-    const parsed = JSON.parse(text);
+    let cleanText = text.trim();
+    
+    // Attempt to extract JSON from markdown or conversational text
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+    }
+
+    let parsed;
+    try {
+      try {
+        parsed = JSON.parse(cleanText);
+      } catch (e) {
+        // If standard parsing fails, try to repair it (handles truncation, missing quotes, etc.)
+        const repaired = jsonrepair(cleanText);
+        parsed = JSON.parse(repaired);
+      }
+    } catch (parseError) {
+      console.error("JSON Parse Error. Raw text length:", text.length);
+      console.error("Text starts with:", text.substring(0, 100));
+      console.error("Text ends with:", text.substring(text.length - 100));
+      if (text.length > 10000) {
+        throw new Error("The attendance sheet is too large and the extracted data exceeded the maximum limit. Please try cropping the image into smaller sections (e.g., half a page at a time).");
+      }
+      throw new Error(`The AI returned malformed data (length: ${text.length}). Please try again. Snippet: ${text.substring(0, 50)}...`);
+    }
     
     if (!parsed.employees || parsed.employees.length === 0) {
       throw new Error("No data could be extracted.");
     }
 
-    return parsed;
+    // Map short keys back to original format
+    const mappedResult: ExtractionResult = {
+      employees: parsed.employees.map((emp: any) => ({
+        employee_name: {
+          value: emp.n,
+          confidence: emp.nc
+        },
+        records: emp.r.map((rec: any) => ({
+          date: rec.d,
+          check_in: {
+            value: rec.i || null,
+            confidence: rec.ic ?? 100
+          },
+          check_out: {
+            value: rec.o || null,
+            confidence: rec.oc ?? 100
+          }
+        }))
+      }))
+    };
+
+    return mappedResult;
   } catch (error) {
     console.error("Extraction error:", error);
     throw new Error(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

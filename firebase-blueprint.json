@@ -34,25 +34,33 @@
     }
   },
   "firestore": {
-    "/users/{userId}/files/{fileId}": {
+    "users/{userId}/files/{fileId}": {
       "schema": "AttendanceFile",
-      "description": "Individual attendance files"
+      "description": "Individual attendance files (Converted Data)"
     },
-    "/users/{userId}/workspace_users/{userId}": {
+    "users/{userId}/workspace_users/{userId}": {
       "schema": "User",
-      "description": "Workspace users"
+      "description": "Workspace users (User Management)"
     },
-    "/users/{userId}/nameDictionary/{nameId}": {
+    "users/{userId}/nameDictionary/{nameId}": {
       "schema": "DictionaryEntry",
-      "description": "Employee name dictionary entries"
+      "description": "Employee name dictionary entries (Name Dictionary)"
     },
-    "/users/{userId}/visualReferences/{sampleId}": {
+    "users/{userId}/visualReferences/{sampleId}": {
       "schema": "VisualSample",
       "description": "Handwritten digit samples"
     },
-    "/users/{userId}/correctionHistory/{correctionId}": {
+    "users/{userId}/correctionHistory/{correctionId}": {
       "schema": "Correction",
       "description": "AI correction history"
+    },
+    "users/{userId}/cms/{docId}": {
+      "schema": "CMSData",
+      "description": "CMS pages, menu, and app menu"
+    },
+    "users/{userId}/settings/site": {
+      "schema": "SiteSettings",
+      "description": "Global site settings"
     }
   }
 }

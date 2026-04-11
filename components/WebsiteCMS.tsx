@@ -6,6 +6,7 @@ import MediaLibrary from './MediaLibrary';
 import PublicPage from './PublicPage';
 import TemplateSelector, { PAGE_TEMPLATES } from './TemplateSelector';
 import { TRANSLATIONS } from '../constants';
+import { uploadToFirebaseStorage } from '../services/storageService';
 
 interface WebsiteCMSProps {
   pages: CmsPage[];
@@ -18,9 +19,11 @@ interface WebsiteCMSProps {
   onSaveSettings: (settings: SiteSettings) => void;
   language: string;
   darkMode: boolean;
+  storageMode?: 'local' | 'firebase';
+  currentUser?: import('../types').User | null;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, language, darkMode }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -39,18 +42,28 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
     { id: '3', url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&q=80&w=1000', name: 'Tech Setup' },
   ]);
 
-  const handleDirectUpload = (file: File, callback: (url: string) => void) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const newImage = {
-        id: Math.random().toString(36).substr(2, 9),
-        url: reader.result as string,
-        name: file.name
-      };
+  const handleDirectUpload = async (file: File, callback: (url: string) => void) => {
+    try {
+      let url = '';
+      const id = Math.random().toString(36).substr(2, 9);
+      
+      if (storageMode === 'firebase' && currentUser) {
+        url = await uploadToFirebaseStorage(file, `users/${currentUser.id}/media/${id}_${file.name}`);
+      } else {
+        url = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const newImage = { id, url, name: file.name };
       setMediaImages(prev => [newImage, ...prev]);
       callback(newImage.url);
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Direct upload failed", error);
+      alert("Upload failed. Please try again.");
+    }
   };
 
   const openMediaLibrary = (callback: (url: string) => void) => {
@@ -168,6 +181,8 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           darkMode={darkMode} 
           images={mediaImages}
           setImages={setMediaImages}
+          storageMode={storageMode}
+          currentUser={currentUser}
         />
       </>
     );
@@ -307,6 +322,8 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
         darkMode={darkMode} 
         images={mediaImages}
         setImages={setMediaImages}
+        storageMode={storageMode}
+        currentUser={currentUser}
       />
 
       <TemplateSelector 

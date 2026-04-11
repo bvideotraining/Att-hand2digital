@@ -159,7 +159,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </nav>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <main className={`flex-1 w-full mx-auto p-4 sm:p-6 lg:p-8 ${currentView === 'review' ? 'max-w-[120rem]' : 'max-w-7xl'}`}>
         {children}
       </main>
 
