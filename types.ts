@@ -243,8 +243,17 @@ export interface AppMenuConfig {
   items: AppMenuItem[];
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: Role;
+  status: 'active' | 'pending' | 'deactivated';
+  createdAt: string;
+}
+
 export interface AppState {
   users: User[];
+  userProfiles?: UserProfile[];
   files: AttendanceFile[];
   nameDictionary: string[];
   correctionHistory: CorrectionEntry[];

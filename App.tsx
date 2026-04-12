@@ -11,7 +11,7 @@ import PublicPage from './components/PublicPage';
 import { extractAttendanceData } from './services/geminiService';
 import { uploadToFirebaseStorage } from './services/storageService';
 import { exportToExcel } from './utils/excelExport';
-import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc, getDocFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
@@ -40,7 +40,10 @@ import {
   Upload,
   RefreshCw,
   LayoutGrid,
-  List
+  List,
+  Edit,
+  Key,
+  Mail
 } from 'lucide-react';
 
 // --- Error Handling for Firestore ---
@@ -102,6 +105,7 @@ const DEFAULT_ADMIN: User = {
 
 const INITIAL_STATE: AppState = {
   users: [DEFAULT_ADMIN],
+  userProfiles: [],
   files: [],
   nameDictionary: [],
   correctionHistory: [],
@@ -347,11 +351,12 @@ const VisualDictionaryPage = ({ samples = [], onAdd, onDelete, language, darkMod
   );
 };
 
-const UserManagementPage = ({ users = [], onAdd, onUpdate, onDelete, language, darkMode }: any) => {
+const UserManagementPage = ({ users = [], userProfiles = [], onAdd, onUpdate, onDelete, onUpdateProfile, language, darkMode, isAdmin }: any) => {
   const t = useTranslation(language);
   const [isAdding, setIsAdding] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<Partial<User>>({ name: '', email: '', role: 'HR User' });
+  const [activeTab, setActiveTab] = useState<'workspace' | 'global'>('workspace');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -372,7 +377,7 @@ const UserManagementPage = ({ users = [], onAdd, onUpdate, onDelete, language, d
           <h2 className="text-3xl font-extrabold tracking-tight">{t.userManagement}</h2>
           <p className="text-gray-500 dark:text-gray-400 mt-1">{t.usersSubtitle || 'Manage system users and their permissions'}</p>
         </div>
-        {!isAdding && !editingUser && (
+        {activeTab === 'workspace' && !isAdding && !editingUser && (
           <button 
             onClick={() => setIsAdding(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
@@ -383,106 +388,188 @@ const UserManagementPage = ({ users = [], onAdd, onUpdate, onDelete, language, d
         )}
       </div>
 
-      {(isAdding || editingUser) && (
-        <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-xl animate-in slide-in-from-top-4 duration-300`}>
-          <h3 className="text-xl font-bold mb-6">{editingUser ? t.editUser : t.addUser}</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.name}</label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                  required 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.email}</label>
-                <input 
-                  type="email" 
-                  value={formData.email} 
-                  onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                  required 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.role}</label>
-                <select 
-                  value={formData.role} 
-                  onChange={(e) => setFormData({...formData, role: e.target.value as Role})} 
-                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                >
-                  <option value="Admin">{t.admin}</option>
-                  <option value="HR User">{t.hrUser}</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button 
-                type="button" 
-                onClick={() => { setIsAdding(false); setEditingUser(null); }}
-                className={`px-6 py-3 rounded-xl font-bold transition ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-              >
-                {t.cancel}
-              </button>
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20">
-                {editingUser ? t.update : t.save}
-              </button>
-            </div>
-          </form>
+      {isAdmin && (
+        <div className={`flex p-1 rounded-xl w-fit ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+          <button 
+            onClick={() => setActiveTab('workspace')}
+            className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'workspace' ? (darkMode ? 'bg-gray-700 text-blue-400 shadow-sm' : 'bg-white shadow-sm text-blue-600') : 'text-gray-500'}`}
+          >
+            {t.workspaceUsers || 'Workspace Users'}
+          </button>
+          <button 
+            onClick={() => setActiveTab('global')}
+            className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'global' ? (darkMode ? 'bg-gray-700 text-blue-400 shadow-sm' : 'bg-white shadow-sm text-blue-600') : 'text-gray-500'}`}
+          >
+            {t.globalAccounts || 'Global Accounts'}
+          </button>
         </div>
       )}
 
-      <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className={`${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.name}</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.email}</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.role}</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-right">{t.actions}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y dark:divide-gray-800">
-              {users.map((u: User) => (
-                <tr key={u.id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
-                  <td className="px-6 py-4 font-bold">{u.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{u.email}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                      {t[u.role === 'Admin' ? 'admin' : 'hrUser']}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={() => { setEditingUser(u); setFormData(u); }}
-                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-800 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => onDelete(u.id)}
-                        className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+      {activeTab === 'workspace' ? (
+        <>
+          {(isAdding || editingUser) && (
+            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-xl animate-in slide-in-from-top-4 duration-300`}>
+              <h3 className="text-xl font-bold mb-6">{editingUser ? t.editUser : t.addUser}</h3>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">{t.name}</label>
+                    <input 
+                      type="text" 
+                      value={formData.name} 
+                      onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">{t.email}</label>
+                    <input 
+                      type="email" 
+                      value={formData.email} 
+                      onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">{t.role}</label>
+                    <select 
+                      value={formData.role} 
+                      onChange={(e) => setFormData({...formData, role: e.target.value as Role})} 
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      <option value="Admin">{t.admin}</option>
+                      <option value="HR User">{t.hrUser}</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsAdding(false); setEditingUser(null); }}
+                    className={`px-6 py-3 rounded-xl font-bold transition ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  >
+                    {t.cancel}
+                  </button>
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-500/20">
+                    {editingUser ? t.update : t.save}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={`${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.name}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.email}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.role}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-right">{t.actions}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-gray-800">
+                  {users.map((u: User) => (
+                    <tr key={u.id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
+                      <td className="px-6 py-4 font-bold">{u.name}</td>
+                      <td className="px-6 py-4 text-gray-500">{u.email}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                          {u.role === 'Admin' ? t.admin : t.hrUser}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => { setEditingUser(u); setFormData(u); }}
+                            className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => onDelete(u.id)}
+                            className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className={`${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.email}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.role}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.status || 'Status'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-right">{t.actions}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y dark:divide-gray-800">
+                {userProfiles.map((up: any) => (
+                  <tr key={up.id} className={`transition-colors ${darkMode ? 'hover:bg-gray-800/30' : 'hover:bg-gray-50'}`}>
+                    <td className="px-6 py-4 font-bold">{up.email}</td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={up.role} 
+                        onChange={(e) => onUpdateProfile(up.id, { role: e.target.value })}
+                        className={`bg-transparent border-none outline-none text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                        disabled={up.email === 'bvideotraining@gmail.com'}
+                      >
+                        <option value="Admin">{t.admin}</option>
+                        <option value="HR User">{t.hrUser}</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        up.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        up.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      }`}>
+                        {up.status === 'active' ? t.active || 'Active' : up.status === 'pending' ? t.pending || 'Pending' : t.deactivated || 'Deactivated'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {up.status !== 'active' && (
+                          <button 
+                            onClick={() => onUpdateProfile(up.id, { status: 'active' })}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition"
+                          >
+                            {t.activate || 'Activate'}
+                          </button>
+                        )}
+                        {up.status === 'active' && up.email !== 'bvideotraining@gmail.com' && (
+                          <button 
+                            onClick={() => onUpdateProfile(up.id, { status: 'deactivated' })}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition"
+                          >
+                            {t.deactivate || 'Deactivate'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
-
 const DashboardPage = ({ files = [], onUpload, onDelete, language, darkMode, onFileSelect, storageMode, onImportToCloud, onSyncToCloud, isSyncing, syncStatus }: any) => {
   const t = useTranslation(language);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -786,7 +873,7 @@ const App: React.FC = () => {
     if (state.storageMode === 'firebase' && currentUser && isAuthReady) {
       const uid = currentUser.id;
       let unsubFiles: any, unsubUsers: any, unsubDict: any, unsubVisual: any, unsubHistory: any;
-      let unsubPages: any, unsubMenu: any, unsubAppMenu: any, unsubSite: any, unsubMedia: any;
+      let unsubPages: any, unsubMenu: any, unsubAppMenu: any, unsubSite: any, unsubMedia: any, unsubProfiles: any;
 
       // Test connection to Firestore
       const testConnection = async () => {
@@ -871,6 +958,13 @@ const App: React.FC = () => {
           setState(p => ({ ...p, mediaImages: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/mediaImages`));
 
+        // Global User Profiles (Admin only)
+        if (currentUser.email === 'bvideotraining@gmail.com') {
+          unsubProfiles = onSnapshot(collection(db, 'user_profiles'), (snap) => {
+            setState(p => ({ ...p, userProfiles: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
+          }, (err) => console.warn("Profiles fetch failed", err));
+        }
+
         setState(p => ({ ...p, isDatabaseLoaded: true, storageMode: 'firebase' }));
       };
 
@@ -917,6 +1011,7 @@ const App: React.FC = () => {
         if (unsubAppMenu) unsubAppMenu();
         if (unsubSite) unsubSite();
         if (unsubMedia) unsubMedia();
+        if (unsubProfiles) unsubProfiles();
       };
     }
   }, [state.storageMode, currentUser, isAuthReady]);
@@ -1296,6 +1391,32 @@ const App: React.FC = () => {
     try {
       setIsConnecting(true);
       const creds = await signInWithEmailAndPassword(auth, email, pass);
+      
+      // Check activation status
+      const profileSnap = await getDoc(doc(db, 'user_profiles', creds.user.uid));
+      if (profileSnap.exists()) {
+        const profile = profileSnap.data();
+        if (profile.status !== 'active' && email !== 'bvideotraining@gmail.com') {
+          await signOut(auth);
+          setIsConnecting(false);
+          const t = TRANSLATIONS[state.language] || TRANSLATIONS.ar;
+          alert(profile.status === 'pending' ? t.accountPending : t.accountDeactivated);
+          return;
+        }
+      } else if (email !== 'bvideotraining@gmail.com') {
+        // If no profile exists and not the main admin, create one as pending and sign out
+        await setDoc(doc(db, 'user_profiles', creds.user.uid), {
+          email,
+          role: 'HR User',
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        });
+        await signOut(auth);
+        setIsConnecting(false);
+        alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
+        return;
+      }
+
       isRemoteUpdate.current = true;
       setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
       setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
@@ -1311,14 +1432,37 @@ const App: React.FC = () => {
     try {
       setIsConnecting(true);
       const creds = await createUserWithEmailAndPassword(auth, email, pass);
-      isRemoteUpdate.current = true;
-      setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
-      setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
+      
+      // Create user profile as pending
+      await setDoc(doc(db, 'user_profiles', creds.user.uid), {
+        email,
+        role: 'HR User',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+
+      // Sign out immediately - must wait for activation
+      await signOut(auth);
       setIsConnecting(false);
+      alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
     } catch (err: any) {
       console.error("Firebase sign up failed", err);
       setIsConnecting(false);
       alert("Sign up failed: " + err.message);
+    }
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    if (!email) return;
+    try {
+      setIsConnecting(true);
+      await sendPasswordResetEmail(auth, email);
+      setIsConnecting(false);
+      alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).resetEmailSent);
+    } catch (err: any) {
+      console.error("Password reset failed", err);
+      setIsConnecting(false);
+      alert("Reset failed: " + err.message);
     }
   };
 
@@ -1554,6 +1698,7 @@ const App: React.FC = () => {
               onGoogleLogin={handleGoogleLogin}
               onFirebaseLogin={handleFirebaseEmailLogin}
               onFirebaseSignUp={handleFirebaseEmailSignUp}
+              onPasswordReset={handlePasswordReset}
               language={state.language} 
               darkMode={state.darkMode}
               appMenuConfig={state.appMenu}
@@ -1616,7 +1761,17 @@ const App: React.FC = () => {
                 storageMode={state.storageMode} 
                 currentUser={currentUser} 
               /> :
-             currentView === 'users' ? <UserManagementPage users={state.users} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} language={state.language} darkMode={state.darkMode} /> : 
+             currentView === 'users' ? <UserManagementPage 
+                users={state.users} 
+                userProfiles={state.userProfiles}
+                onAdd={handleAddUser} 
+                onUpdate={handleUpdateUser} 
+                onDelete={handleDeleteUser} 
+                onUpdateProfile={(id: string, data: any) => updateStateAndFirestore('user_profiles', id, data, false, p => ({...p, userProfiles: (p.userProfiles || []).map(up => up.id === id ? {...up, ...data} : up)}))}
+                language={state.language} 
+                darkMode={state.darkMode} 
+                isAdmin={currentUser?.email === 'bvideotraining@gmail.com'}
+              /> : 
              selectedFile ? <ReviewPage file={selectedFile} language={state.language} darkMode={state.darkMode} onSave={handleUpdateFileData} onBack={() => setCurrentView('dashboard')} /> : <Navigate to="/" replace />}
           </Layout>
         )}
@@ -1630,6 +1785,7 @@ const LoginPage = ({
   onGoogleLogin, 
   onFirebaseLogin, 
   onFirebaseSignUp, 
+  onPasswordReset,
   language, 
   darkMode,
   appMenuConfig,
@@ -1648,6 +1804,7 @@ const LoginPage = ({
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
   const [mode, setMode] = useState<'local' | 'firebase'>('local');
+  const [isResetMode, setIsResetMode] = useState(false);
   const t = useTranslation(language);
   const isRtl = language === 'ar';
   const appName = cmsMenuConfig?.logoText || appMenuConfig?.appName || 'HandAttend AI';
@@ -1657,6 +1814,57 @@ const LoginPage = ({
     e.preventDefault();
     onLogin({ email, password });
   };
+
+  const handleResetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onPasswordReset(email);
+    setIsResetMode(false);
+  };
+
+  if (isResetMode) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-6 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+        <div className={`max-w-md w-full rounded-3xl shadow-2xl border overflow-hidden relative p-8 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+          <div className="text-center mb-8">
+            <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg">
+              <Key className="w-8 h-8" />
+            </div>
+            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.resetPassword}</h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">{t.resetEmailSentHelp || 'Enter your email to receive a password reset link'}</p>
+          </div>
+
+          <form onSubmit={handleResetSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">{t.email}</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                placeholder="user@example.com" 
+                required
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={isConnecting || !email}
+              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${isConnecting ? 'opacity-50' : ''}`}
+            >
+              {isConnecting ? <Loader2 className="animate-spin w-5 h-5" /> : <Mail className="w-4 h-4" />}
+              {t.sendResetLink}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setIsResetMode(false)}
+              className={`w-full py-3 rounded-xl font-bold transition ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              {t.backToLogin}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-6 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
@@ -1827,6 +2035,16 @@ const LoginPage = ({
                 >
                   <UserPlus className="w-4 h-4" />
                   {t.signUp || 'Sign Up'}
+                </button>
+              </div>
+
+              <div className="text-center mt-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsResetMode(true)}
+                  className={`text-sm font-bold transition ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                >
+                  {t.forgotPassword}
                 </button>
               </div>
 

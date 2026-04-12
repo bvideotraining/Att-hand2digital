@@ -12,6 +12,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'Admin' ||
+         request.auth.token.email == 'bvideotraining@gmail.com');
+    }
+
+    // Global User Profiles for Activation/Management
+    match /user_profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && 
+                      request.resource.data.role == 'HR User' && 
+                      request.resource.data.status == 'pending' &&
+                      request.resource.data.email == request.auth.token.email;
+      allow update: if isAdmin();
+    }
+
     // Rules for user-specific data
     // This matches the user document and all its subcollections recursively
     match /users/{userId}/{allPaths=**} {
