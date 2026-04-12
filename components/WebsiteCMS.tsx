@@ -25,13 +25,14 @@ interface WebsiteCMSProps {
   onDeleteMediaImage?: (id: string) => void;
   onForceSave?: () => void;
   onSyncBrandingToPublic?: () => void;
+  isSyncing?: boolean;
   language: string;
   darkMode: boolean;
   storageMode?: 'local' | 'firebase';
   currentUser?: import('../types').User | null;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, language, darkMode, storageMode, currentUser }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, isSyncing, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -298,11 +299,12 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           {onSyncBrandingToPublic && (
             <button 
               onClick={onSyncBrandingToPublic}
-              className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              disabled={isSyncing}
+              className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border ${isSyncing ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/20'}`}
               title="Sync current branding to public view for all devices"
             >
-              <RefreshCw className="w-4 h-4" />
-              Sync to Public
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync to Public'}
             </button>
           )}
           <button 

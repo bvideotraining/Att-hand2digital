@@ -1126,9 +1126,10 @@ const App: React.FC = () => {
       alert("Branding successfully synced to public! Other devices should see the updates now.");
     } catch (err) {
       console.error("Manual branding sync failed", err);
-      handleFirestoreError(err, OperationType.WRITE, 'public/config');
       setSyncStatus('error');
       alert("Failed to sync branding. Check console for details.");
+      // Call error handler after alert so it doesn't block the UI feedback
+      try { handleFirestoreError(err, OperationType.WRITE, 'public/config'); } catch(e) {}
     } finally {
       setIsSyncing(false);
     }
@@ -1427,9 +1428,10 @@ const App: React.FC = () => {
       setIsConnecting(false);
     } catch (err: any) {
       console.error("Firebase login failed", err);
-      handleFirestoreError(err, OperationType.WRITE, `user_profiles/${auth.currentUser?.uid}`);
       setIsConnecting(false);
-      alert("Login failed: " + err.message);
+      const uid = auth.currentUser?.uid;
+      alert(`Login failed: ${err.message}\nEmail: ${email}\nUID: ${uid || 'N/A'}`);
+      try { handleFirestoreError(err, OperationType.WRITE, `user_profiles/${uid}`); } catch(e) {}
     }
   };
 
@@ -1456,9 +1458,10 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Firebase sign up failed", err);
-      handleFirestoreError(err, OperationType.WRITE, `user_profiles/${auth.currentUser?.uid}`);
       setIsConnecting(false);
-      alert("Sign up failed: " + err.message);
+      const uid = auth.currentUser?.uid;
+      alert(`Sign up failed: ${err.message}\nEmail: ${email}\nUID: ${uid || 'N/A'}`);
+      try { handleFirestoreError(err, OperationType.WRITE, `user_profiles/${uid}`); } catch(e) {}
     }
   };
 
@@ -1766,6 +1769,7 @@ const App: React.FC = () => {
                   setTimeout(() => setSyncStatus(null), 2000);
                 } : (globalFileHandle ? () => saveToSystemFile(state) : triggerManualSync)} 
                 onSyncBrandingToPublic={handleSyncBrandingToPublic}
+                isSyncing={isSyncing}
                 language={state.language} 
                 darkMode={state.darkMode} 
                 storageMode={state.storageMode} 
