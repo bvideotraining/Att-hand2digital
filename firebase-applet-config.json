@@ -4,5 +4,6 @@
   "projectId": "aihandupdated",
   "storageBucket": "aihandupdated.firebasestorage.app",
   "messagingSenderId": "60134086738",
-  "appId": "1:60134086738:web:ff27c20f6f23093609278b"
+  "appId": "1:60134086738:web:ff27c20f6f23093609278b",
+  "firestoreDatabaseId": "aihandupdated"
 }
