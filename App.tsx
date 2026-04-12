@@ -1107,7 +1107,8 @@ const App: React.FC = () => {
   };
 
   const handleSyncBrandingToPublic = async () => {
-    if (!currentUser || currentUser.email !== 'bvideotraining@gmail.com') {
+    const adminEmail = 'bvideotraining@gmail.com';
+    if (!currentUser || currentUser.email?.toLowerCase() !== adminEmail) {
       alert("Only the main admin can sync branding to public.");
       return;
     }
@@ -1389,7 +1390,9 @@ const App: React.FC = () => {
     setState(p => ({ ...p, storageMode: 'local' }));
   };
 
-  const handleFirebaseEmailLogin = async (email: string, pass: string) => {
+  const handleFirebaseEmailLogin = async (rawEmail: string, pass: string) => {
+    const email = rawEmail.toLowerCase().trim();
+    const adminEmail = 'bvideotraining@gmail.com';
     try {
       setIsConnecting(true);
       const creds = await signInWithEmailAndPassword(auth, email, pass);
@@ -1398,7 +1401,7 @@ const App: React.FC = () => {
       const profileSnap = await getDoc(doc(db, 'user_profiles', creds.user.uid));
       if (profileSnap.exists()) {
         const profile = profileSnap.data();
-        if (profile.status !== 'active' && email !== 'bvideotraining@gmail.com') {
+        if (profile.status !== 'active' && email !== adminEmail) {
           await signOut(auth);
           setIsConnecting(false);
           const t = TRANSLATIONS[state.language] || TRANSLATIONS.ar;
@@ -1409,12 +1412,12 @@ const App: React.FC = () => {
         // If no profile exists, create one
         await setDoc(doc(db, 'user_profiles', creds.user.uid), {
           email,
-          role: email === 'bvideotraining@gmail.com' ? 'Admin' : 'HR User',
-          status: email === 'bvideotraining@gmail.com' ? 'active' : 'pending',
+          role: email === adminEmail ? 'Admin' : 'HR User',
+          status: email === adminEmail ? 'active' : 'pending',
           createdAt: new Date().toISOString()
         });
         
-        if (email !== 'bvideotraining@gmail.com') {
+        if (email !== adminEmail) {
           await signOut(auth);
           setIsConnecting(false);
           alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
@@ -1435,7 +1438,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleFirebaseEmailSignUp = async (email: string, pass: string) => {
+  const handleFirebaseEmailSignUp = async (rawEmail: string, pass: string) => {
+    const email = rawEmail.toLowerCase().trim();
+    const adminEmail = 'bvideotraining@gmail.com';
     try {
       setIsConnecting(true);
       const creds = await createUserWithEmailAndPassword(auth, email, pass);
@@ -1443,12 +1448,12 @@ const App: React.FC = () => {
       // Create user profile
       await setDoc(doc(db, 'user_profiles', creds.user.uid), {
         email,
-        role: email === 'bvideotraining@gmail.com' ? 'Admin' : 'HR User',
-        status: email === 'bvideotraining@gmail.com' ? 'active' : 'pending',
+        role: email === adminEmail ? 'Admin' : 'HR User',
+        status: email === adminEmail ? 'active' : 'pending',
         createdAt: new Date().toISOString()
       });
 
-      if (email !== 'bvideotraining@gmail.com') {
+      if (email !== adminEmail) {
         // Sign out immediately - must wait for activation
         await signOut(auth);
         setIsConnecting(false);
