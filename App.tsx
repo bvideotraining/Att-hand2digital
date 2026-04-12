@@ -751,8 +751,10 @@ const App: React.FC = () => {
   // Public Data Listener (for unauthenticated users)
   useEffect(() => {
     if (isAuthReady && !currentUser) {
+      console.log("Starting public config fetch...");
       const unsubPublic = onSnapshot(doc(db, 'public', 'config'), (docSnap) => {
         if (docSnap.exists()) {
+          console.log("Public config found, applying...");
           const data = docSnap.data();
           let pages = data.cmsPages;
           if (pages && !Array.isArray(pages) && typeof pages === 'object') {
@@ -771,6 +773,8 @@ const App: React.FC = () => {
             isDatabaseLoaded: true,
             storageMode: 'firebase'
           }));
+        } else {
+          console.log("No public config found in Firestore.");
         }
       }, (err) => console.warn("Public config fetch failed", err));
       return () => unsubPublic();
@@ -1005,6 +1009,33 @@ const App: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).syncManual);
+  };
+
+  const handleSyncBrandingToPublic = async () => {
+    if (!currentUser || currentUser.email !== 'bvideotraining@gmail.com') {
+      alert("Only the main admin can sync branding to public.");
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const publicRef = doc(db, 'public', 'config');
+      const update = {
+        cmsPages: state.cmsPages,
+        cmsMenu: state.cmsMenu,
+        appMenu: state.appMenu,
+        siteSettings: state.siteSettings
+      };
+      await setDoc(publicRef, removeUndefined(update), { merge: true });
+      setSyncStatus('synced');
+      setTimeout(() => setSyncStatus(null), 2000);
+      alert("Branding successfully synced to public! Other devices should see the updates now.");
+    } catch (err) {
+      console.error("Manual branding sync failed", err);
+      setSyncStatus('error');
+      alert("Failed to sync branding. Check console for details.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const applyImportedData = async (imported: any, fileName: string, forceFirebase: boolean = false) => {
@@ -1560,7 +1591,7 @@ const App: React.FC = () => {
             {currentView === 'dashboard' ? <DashboardPage files={state.files} onUpload={handleUpload} onDelete={handleDeleteFile} language={state.language} darkMode={state.darkMode} onFileSelect={(f: any) => { setSelectedFileId(f.id); setCurrentView('review'); }} storageMode={state.storageMode} onImportToCloud={handleImportToCloud} onSyncToCloud={handleSyncCurrentToCloud} isSyncing={isSyncing} syncStatus={syncStatus} /> : 
              currentView === 'dictionary' ? <DictionaryPage names={state.nameDictionary} onAdd={handleAddName} onDelete={handleDeleteName} language={state.language} darkMode={state.darkMode} /> : 
              currentView === 'samples' ? <VisualDictionaryPage samples={state.visualReferences} onAdd={handleAddSample} onDelete={handleDeleteSample} language={state.language} darkMode={state.darkMode} /> : 
-                           currentView === 'cms' ? <WebsiteCMS 
+             currentView === 'cms' ? <WebsiteCMS 
                 pages={state.cmsPages || []} 
                 menuConfig={state.cmsMenu!} 
                 appMenuConfig={state.appMenu!} 
@@ -1579,6 +1610,7 @@ const App: React.FC = () => {
                   setSyncStatus('synced');
                   setTimeout(() => setSyncStatus(null), 2000);
                 } : (globalFileHandle ? () => saveToSystemFile(state) : triggerManualSync)} 
+                onSyncBrandingToPublic={handleSyncBrandingToPublic}
                 language={state.language} 
                 darkMode={state.darkMode} 
                 storageMode={state.storageMode} 

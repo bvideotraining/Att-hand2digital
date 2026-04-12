@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
-import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon } from 'lucide-react';
+import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
 import MediaLibrary from './MediaLibrary';
 import PublicPage from './PublicPage';
@@ -24,13 +24,14 @@ interface WebsiteCMSProps {
   onSaveMediaImage?: (image: {id: string, url: string, name: string}) => void;
   onDeleteMediaImage?: (id: string) => void;
   onForceSave?: () => void;
+  onSyncBrandingToPublic?: () => void;
   language: string;
   darkMode: boolean;
   storageMode?: 'local' | 'firebase';
   currentUser?: import('../types').User | null;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, language, darkMode, storageMode, currentUser }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -294,6 +295,16 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
             <Save className="w-4 h-4" />
             {t.saveAllChanges}
           </button>
+          {onSyncBrandingToPublic && (
+            <button 
+              onClick={onSyncBrandingToPublic}
+              className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              title="Sync current branding to public view for all devices"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Sync to Public
+            </button>
+          )}
           <button 
             onClick={() => setActiveTab('menu')}
             className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'menu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}

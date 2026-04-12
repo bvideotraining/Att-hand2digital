@@ -35,8 +35,7 @@ service cloud.firestore {
     match /public/config {
       allow read: if true;
       allow write: if isAuthenticated() && 
-                     request.auth.token.email == 'bvideotraining@gmail.com' && 
-                     request.auth.token.email_verified == true;
+                     request.auth.token.email == 'bvideotraining@gmail.com';
     }
   }
 }
