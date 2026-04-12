@@ -837,6 +837,15 @@ const App: React.FC = () => {
         setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
         // Allow enough time for onSnapshot to fetch the real cloud data
         setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
+
+        // Ensure public config has ownerId for submissions
+        if (isSharedAdmin) {
+          getDoc(doc(db, 'public', 'config')).then(snap => {
+            if (!snap.exists() || !snap.data()?.ownerId) {
+              setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
+            }
+          });
+        }
       } else {
         setCurrentUser(null);
         // Reset to initial state but keep firebase mode to trigger public fetch if needed
@@ -1157,6 +1166,7 @@ const App: React.FC = () => {
     try {
       const publicRef = doc(db, 'public', 'config');
       const update = {
+        ownerId: currentUser.id,
         cmsPages: state.cmsPages,
         cmsMenu: state.cmsMenu,
         appMenu: state.appMenu,
@@ -1355,22 +1365,28 @@ const App: React.FC = () => {
       sourcePage: window.location.hash || '/'
     };
 
-    if (state.storageMode === 'firebase') {
+    try {
       let targetUid = currentUser?.id;
       if (!targetUid) {
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
-        targetUid = publicConfig.data()?.ownerId;
+        if (publicConfig.exists()) {
+          targetUid = publicConfig.data()?.ownerId;
+        }
       }
       
       if (targetUid) {
         await setDoc(doc(db, `users/${targetUid}/newsletterResponses`, response.id), response);
+        console.log("Newsletter submission saved to Firestore");
+        return;
       }
-    } else {
-      setState(p => ({
-        ...p,
-        newsletterResponses: [response, ...(p.newsletterResponses || [])]
-      }));
+    } catch (e) {
+      console.warn("Direct firebase newsletter submission failed, falling back to local state", e);
     }
+
+    setState(p => ({
+      ...p,
+      newsletterResponses: [response, ...(p.newsletterResponses || [])]
+    }));
   };
 
   const handleContactSubmit = async (formId: string, formTitle: string, data: any) => {
@@ -1383,22 +1399,28 @@ const App: React.FC = () => {
       sourcePage: window.location.hash || '/'
     };
 
-    if (state.storageMode === 'firebase') {
+    try {
       let targetUid = currentUser?.id;
       if (!targetUid) {
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
-        targetUid = publicConfig.data()?.ownerId;
+        if (publicConfig.exists()) {
+          targetUid = publicConfig.data()?.ownerId;
+        }
       }
       
       if (targetUid) {
         await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), response);
+        console.log("Contact form submission saved to Firestore");
+        return;
       }
-    } else {
-      setState(p => ({
-        ...p,
-        contactResponses: [response, ...(p.contactResponses || [])]
-      }));
+    } catch (e) {
+      console.warn("Direct firebase contact submission failed, falling back to local state", e);
     }
+
+    setState(p => ({
+      ...p,
+      contactResponses: [response, ...(p.contactResponses || [])]
+    }));
   };
 
   const handleDeleteNewsletterResponse = async (id: string) => {

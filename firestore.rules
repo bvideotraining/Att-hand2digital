@@ -29,9 +29,13 @@ service cloud.firestore {
       allow read, write: if isOwner(userId) || isAdmin();
     }
 
-    // Allow public newsletter submissions
+    // Allow public newsletter and contact submissions
     match /users/{userId}/newsletterResponses/{responseId} {
       allow create: if true; // Anyone can subscribe
+    }
+    
+    match /users/{userId}/contactResponses/{responseId} {
+      allow create: if true; // Anyone can submit contact form
     }
     
     // Legacy app_data
