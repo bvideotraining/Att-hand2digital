@@ -12,9 +12,10 @@ interface PublicPageProps {
   onLanguageToggle: () => void;
   onThemeToggle: () => void;
   onSignIn: () => void;
+  onNewsletterSubmit?: (email: string) => Promise<void>;
 }
 
-const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, language, onLanguageToggle, onThemeToggle, onSignIn }) => {
+const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, language, onLanguageToggle, onThemeToggle, onSignIn, onNewsletterSubmit }) => {
   const menuConfig = React.useMemo(() => ({
     backgroundStyle: 'solid' as const,
     backgroundColor: '#ffffff',
@@ -181,29 +182,39 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
 
       <main>
         {page.blocks.map(block => (
-          <BlockRenderer key={block.id} block={block} darkMode={darkMode} />
+          <BlockRenderer key={block.id} block={block} darkMode={darkMode} onNewsletterSubmit={onNewsletterSubmit} />
         ))}
       </main>
     </div>
   );
 };
 
-const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block, darkMode }) => {
+const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletterSubmit?: (email: string) => Promise<void> }> = ({ block, darkMode, onNewsletterSubmit }) => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      if (onNewsletterSubmit) {
+        await onNewsletterSubmit(email);
+      } else {
+        // Fallback simulation
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       setIsSubmitting(false);
       setIsSuccess(true);
       setEmail('');
       setTimeout(() => setIsSuccess(false), 3000);
-    }, 1000);
+    } catch (error) {
+      console.error("Newsletter submission failed", error);
+      setIsSubmitting(false);
+      alert("Submission failed. Please try again.");
+    }
   };
 
   const handleContactSubmit = (e: React.FormEvent) => {
@@ -360,12 +371,14 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block
     }
     case 'cards': {
       const b = block as CardsBlock;
-      const gridCols = b.columns === 2 ? 'md:grid-cols-2' : b.columns === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3';
+      const isList = b.layout === 'list';
+      const gridCols = b.columns === 1 ? 'grid-cols-1' : b.columns === 2 ? 'md:grid-cols-2' : b.columns === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3';
+      
       return (
         <section className={`py-24 px-4 ${darkMode ? 'bg-gray-900/50' : 'bg-white'}`}>
           <div className="max-w-7xl mx-auto">
             {b.heading && <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">{b.heading}</h2>}
-            <div className={`grid grid-cols-1 ${gridCols} gap-8`}>
+            <div className={`grid gap-8 ${isList ? 'grid-cols-1 max-w-4xl mx-auto' : `grid-cols-1 ${gridCols}`}`}>
               {b.cards.map((card, i) => {
                 const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, ArrowRight, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link: LinkIcon };
                 const IconComponent = IconMap[card.icon] || Zap;
@@ -378,11 +391,25 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block
                     transition={{ delay: i * 0.1 }}
                     className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-950 border-gray-800' : 'bg-gray-50 border-gray-100'} shadow-sm hover:shadow-xl transition-shadow`}
                   >
-                    <div className="bg-blue-50 dark:bg-blue-900/20 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
-                      <IconComponent className="w-7 h-7" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3">{card.title}</h3>
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{card.description}</p>
+                    {isList ? (
+                      <div className="flex items-start gap-6">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 w-16 h-16 rounded-full flex items-center justify-center shrink-0 text-blue-600">
+                          <IconComponent className="w-8 h-8" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-bold mb-2">{card.title}</h3>
+                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">{card.description}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
+                          <IconComponent className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-3">{card.title}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{card.description}</p>
+                      </>
+                    )}
                   </motion.div>
                 );
               })}

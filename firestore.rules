@@ -28,6 +28,11 @@ service cloud.firestore {
     match /users/{userId}/{allPaths=**} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
+
+    // Allow public newsletter submissions
+    match /users/{userId}/newsletterResponses/{responseId} {
+      allow create: if true; // Anyone can subscribe
+    }
     
     // Legacy app_data
     match /app_data/{userId}/{allPaths=**} {

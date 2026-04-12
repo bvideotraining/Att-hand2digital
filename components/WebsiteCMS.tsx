@@ -25,6 +25,10 @@ interface WebsiteCMSProps {
   onDeleteMediaImage?: (id: string) => void;
   onForceSave?: () => void;
   onSyncBrandingToPublic?: () => void;
+  onSaveNewsletterSettings?: (settings: import('../types').NewsletterSettings) => void;
+  onDeleteNewsletterResponse?: (id: string) => void;
+  newsletterSettings?: import('../types').NewsletterSettings;
+  newsletterResponses?: import('../types').NewsletterResponse[];
   isSyncing?: boolean;
   language: string;
   darkMode: boolean;
@@ -32,13 +36,56 @@ interface WebsiteCMSProps {
   currentUser?: import('../types').User | null;
 }
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, isSyncing, language, darkMode, storageMode, currentUser }) => {
+const LinkPicker = ({ value, onChange, pages, darkMode, t }: { value: string, onChange: (val: string) => void, pages: CmsPage[], darkMode: boolean, t: any }) => {
+  const [mode, setMode] = useState<'custom' | 'pages'>(pages.some(p => p.slug === value) ? 'pages' : 'custom');
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 w-fit">
+        <button 
+          onClick={() => setMode('custom')}
+          className={`px-3 py-1 rounded-md text-xs font-bold transition ${mode === 'custom' ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          {t.custom || 'Custom'}
+        </button>
+        <button 
+          onClick={() => setMode('pages')}
+          className={`px-3 py-1 rounded-md text-xs font-bold transition ${mode === 'pages' ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          {t.pages || 'Pages'}
+        </button>
+      </div>
+      {mode === 'custom' ? (
+        <input 
+          type="text" 
+          value={value} 
+          onChange={e => onChange(e.target.value)} 
+          placeholder="https://... or /path"
+          className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} 
+        />
+      ) : (
+        <select 
+          value={value} 
+          onChange={e => onChange(e.target.value)}
+          className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}
+        >
+          <option value="">Select a page...</option>
+          {pages.map(p => (
+            <option key={p.id} value={p.slug}>{p.title} ({p.slug})</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+};
+
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, newsletterSettings, newsletterResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
   }, [language]);
 
-  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings' | 'newsletter'>('pages');
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false);
@@ -50,6 +97,11 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   const [localMenu, setLocalMenu] = useState<CmsMenuConfig>(menuConfig);
   const [localAppMenu, setLocalAppMenu] = useState<import('../types').AppMenuConfig | undefined>(appMenuConfig);
   const [localSettings, setLocalSettings] = useState<SiteSettings>(siteSettings);
+  const [localNewsletterSettings, setLocalNewsletterSettings] = useState<import('../types').NewsletterSettings>(newsletterSettings || {
+    enabled: true,
+    collectResponses: true,
+    autoResponderEnabled: false
+  });
 
   // Sync local state with props when they change (e.g. after a remote update)
   React.useEffect(() => {
@@ -63,6 +115,10 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   React.useEffect(() => {
     setLocalSettings(siteSettings);
   }, [siteSettings]);
+
+  React.useEffect(() => {
+    if (newsletterSettings) setLocalNewsletterSettings(newsletterSettings);
+  }, [newsletterSettings]);
 
   const handleMenuChange = (menu: CmsMenuConfig) => {
     setLocalMenu(menu);
@@ -84,6 +140,7 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
     if (onSaveAppMenu && localAppMenu) onSaveAppMenu(localAppMenu);
     onSaveSettings(localSettings);
     onSavePages(pages);
+    if (onSaveNewsletterSettings) onSaveNewsletterSettings(localNewsletterSettings);
     if (onForceSave) onForceSave();
   };
 
@@ -243,7 +300,7 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   if (editingPageId && editingPage) {
     return (
       <>
-        <PageEditor page={editingPage} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} handleDirectUpload={handleDirectUpload} darkMode={darkMode} t={t} language={language} />
+        <PageEditor page={editingPage} pages={pages} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} handleDirectUpload={handleDirectUpload} darkMode={darkMode} t={t} language={language} />
         <MediaLibrary 
           isOpen={isMediaLibraryOpen} 
           onClose={() => {
@@ -327,6 +384,13 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           >
             <Settings className="w-4 h-4" />
             {t.settings}
+          </button>
+          <button 
+            onClick={() => setActiveTab('newsletter')}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'newsletter' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          >
+            <Mail className="w-4 h-4" />
+            Newsletter
           </button>
           <button 
             onClick={() => setIsMediaLibraryOpen(true)}
@@ -414,7 +478,17 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
       ) : activeTab === 'menu' ? (
         <MenuEditor config={localMenu} onSave={onSaveMenu} onChange={handleMenuChange} pages={pages} onSavePages={onSavePages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} language={language} />
       ) : activeTab === 'appMenu' && localAppMenu ? (
-        <AppMenuEditor config={localAppMenu} onSave={onSaveAppMenu} onChange={handleAppMenuChange} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} />
+        <AppMenuEditor config={localAppMenu} onSave={onSaveAppMenu} onChange={handleAppMenuChange} pages={pages} openMediaLibrary={openMediaLibrary} darkMode={darkMode} t={t} />
+      ) : activeTab === 'newsletter' ? (
+        <NewsletterEditor 
+          settings={localNewsletterSettings} 
+          responses={newsletterResponses || []} 
+          onSave={onSaveNewsletterSettings || (() => {})} 
+          onDeleteResponse={onDeleteNewsletterResponse || (() => {})}
+          darkMode={darkMode} 
+          t={t} 
+          language={language} 
+        />
       ) : (
         <SettingsEditor settings={localSettings} onSave={onSaveSettings} onChange={handleSettingsChange} darkMode={darkMode} t={t} language={language} />
       )}
@@ -554,7 +628,7 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
 
 // --- Page Editor Subcomponent ---
 
-const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, handleDirectUpload, darkMode, t, language }: { page: CmsPage, menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, handleDirectUpload: (file: File, cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+const PageEditor = ({ page, pages, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, handleDirectUpload, darkMode, t, language }: { page: CmsPage, pages: CmsPage[], menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, handleDirectUpload: (file: File, cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
   const [localPage, setLocalPage] = useState<CmsPage>(page);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [isEditingSlug, setIsEditingSlug] = useState(false);
@@ -689,6 +763,7 @@ const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaL
               <BlockEditor 
                 block={block} 
                 index={index} 
+                pages={pages}
                 onUpdate={(updates: any) => updateBlock(block.id, updates)} 
                 onRemove={() => removeBlock(block.id)}
                 onMove={(dir: any) => moveBlock(index, dir)}
@@ -739,7 +814,7 @@ const PageEditor = ({ page, menuConfig, siteSettings, onSave, onBack, openMediaL
   );
 };
 
-const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrary, handleDirectUpload, darkMode, t }: any) => {
+const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMediaLibrary, handleDirectUpload, darkMode, t }: any) => {
   const [expanded, setExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -894,7 +969,7 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonLink}</label>
-                    <input type="text" value={block.buttonLink} onChange={e => onUpdate({ buttonLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <LinkPicker value={block.buttonLink} onChange={val => onUpdate({ buttonLink: val })} pages={pages} darkMode={darkMode} t={t} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1014,17 +1089,33 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
 
           {block.type === 'cards' && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.sectionHeading}</label>
-                <input type="text" value={block.heading} onChange={e => onUpdate({ heading: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.sectionHeading}</label>
+                  <input type="text" value={block.heading} onChange={e => onUpdate({ heading: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t.layout || 'Layout'}</label>
+                  <div className="flex gap-2">
+                    {['grid', 'list'].map(l => (
+                      <button 
+                        key={l}
+                        onClick={() => onUpdate({ layout: l as any })}
+                        className={`px-4 py-2 rounded-xl border text-sm font-medium transition capitalize ${block.layout === l || (!block.layout && l === 'grid') ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">{t.columns}</label>
                 <div className="flex gap-2">
-                  {[2, 3, 4].map(c => (
+                  {[1, 2, 3, 4].map(c => (
                     <button 
                       key={c}
-                      onClick={() => onUpdate({ columns: c })}
+                      onClick={() => onUpdate({ columns: c as any })}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${block.columns === c ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'}`}
                     >
                       {c} {t.cols}
@@ -1185,6 +1276,97 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
                 <label className="block text-sm font-medium mb-1.5">{t.description}</label>
                 <textarea value={block.description} onChange={e => onUpdate({ description: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
               </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="block text-sm font-medium">{t.footerColumns || 'Footer Columns'}</label>
+                  <button 
+                    onClick={() => onUpdate({ columns: [...(block.columns || []), { id: Math.random().toString(), title: 'New Column', links: [] }] })}
+                    className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-700"
+                  >
+                    <Plus className="w-4 h-4" /> {t.addColumn || 'Add Column'}
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {(block.columns || []).map((col, colIdx) => (
+                    <div key={col.id} className={`p-4 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex justify-between items-center mb-4">
+                        <input 
+                          type="text" 
+                          value={col.title} 
+                          onChange={e => {
+                            const newCols = [...block.columns];
+                            newCols[colIdx].title = e.target.value;
+                            onUpdate({ columns: newCols });
+                          }}
+                          className={`bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-500 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                        />
+                        <button 
+                          onClick={() => onUpdate({ columns: block.columns.filter((_, idx) => idx !== colIdx) })}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {col.links.map((link, linkIdx) => (
+                          <div key={link.id} className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.linkText || 'Link Text'}</label>
+                              <input 
+                                type="text" 
+                                value={link.text} 
+                                onChange={e => {
+                                  const newCols = [...block.columns];
+                                  newCols[colIdx].links[linkIdx].text = e.target.value;
+                                  onUpdate({ columns: newCols });
+                                }}
+                                className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`}
+                              />
+                            </div>
+                            <div className="flex gap-2 items-end">
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.linkUrl || 'Link URL'}</label>
+                                <LinkPicker 
+                                  value={link.url} 
+                                  onChange={val => {
+                                    const newCols = [...block.columns];
+                                    newCols[colIdx].links[linkIdx].url = val;
+                                    onUpdate({ columns: newCols });
+                                  }} 
+                                  pages={pages} 
+                                  darkMode={darkMode} 
+                                  t={t} 
+                                />
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  const newCols = [...block.columns];
+                                  newCols[colIdx].links = newCols[colIdx].links.filter((_, idx) => idx !== linkIdx);
+                                  onUpdate({ columns: newCols });
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button 
+                          onClick={() => {
+                            const newCols = [...block.columns];
+                            newCols[colIdx].links.push({ id: Math.random().toString(), text: 'New Link', url: '#' });
+                            onUpdate({ columns: newCols });
+                          }}
+                          className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:text-blue-600 hover:border-blue-500 transition"
+                        >
+                          <Plus className="w-3 h-3 inline mr-1" /> {t.addLink || 'Add Link'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1195,7 +1377,7 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
 
 // --- App Menu Editor Subcomponent ---
 
-const AppMenuEditor = ({ config, onSave, onChange, openMediaLibrary, darkMode, t }: any) => {
+const AppMenuEditor = ({ config, onSave, onChange, pages, openMediaLibrary, darkMode, t }: { config: import('../types').AppMenuConfig, onSave: (c: import('../types').AppMenuConfig) => void, onChange: (c: import('../types').AppMenuConfig) => void, pages: CmsPage[], openMediaLibrary: (cb: (url: string) => void) => void, darkMode: boolean, t: any }) => {
   const defaultConfig = useMemo(() => ({
     appName: 'HandAttend AI',
     fontFamily: 'Inter, sans-serif',
@@ -1360,12 +1542,7 @@ const AppMenuEditor = ({ config, onSave, onChange, openMediaLibrary, darkMode, t
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1 text-gray-500">Link (View ID)</label>
-                  <input 
-                    type="text" 
-                    value={item.link} 
-                    onChange={e => handleUpdateItem(item.id, { link: e.target.value })} 
-                    className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`} 
-                  />
+                  <LinkPicker value={item.link} onChange={val => handleUpdateItem(item.id, { link: val })} pages={pages} darkMode={darkMode} t={t} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1 text-gray-500">Icon</label>
@@ -1617,7 +1794,7 @@ const MenuEditor = ({ config, onSave, onChange, pages, onSavePages, openMediaLib
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.buttonLink}</label>
-                  <input type="text" value={localConfig.signInLink} onChange={e => handleUpdate({ signInLink: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <LinkPicker value={localConfig.signInLink} onChange={val => handleUpdate({ signInLink: val })} pages={pages} darkMode={darkMode} t={t} />
                 </div>
               </div>
 
@@ -1836,10 +2013,99 @@ const SettingsEditor = ({ settings, onSave, onChange, darkMode, t, language }: {
             {t.deploymentHostingDesc}
           </p>
           <ul className="list-disc pl-5 space-y-2 text-gray-600 dark:text-gray-400">
+            <li><strong>Firebase Hosting:</strong> {language === 'ar' ? 'استضافة سريعة وآمنة مع تكامل كامل مع Firestore.' : 'Fast and secure hosting with full Firestore integration.'}</li>
             <li><strong>Vercel:</strong> {t.vercelDesc}</li>
             <li><strong>Netlify:</strong> {t.netlifyDesc}</li>
             <li><strong>{t.envVars}:</strong> {t.envVarsDesc}</li>
           </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const NewsletterEditor = ({ settings, responses, onSave, onDeleteResponse, darkMode, t, language }: { settings: import('../types').NewsletterSettings, responses: import('../types').NewsletterResponse[], onSave: (s: import('../types').NewsletterSettings) => void, onDeleteResponse: (id: string) => void, darkMode: boolean, t: any, language: string }) => {
+  const [localSettings, setLocalSettings] = useState<import('../types').NewsletterSettings>(settings);
+
+  const handleUpdate = (updates: Partial<import('../types').NewsletterSettings>) => {
+    const next = { ...localSettings, ...updates };
+    setLocalSettings(next);
+  };
+
+  const handleSave = () => {
+    onSave(localSettings);
+  };
+
+  return (
+    <div className={`max-w-4xl mx-auto space-y-6 animate-in fade-in ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex justify-end">
+        <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2">
+          <Save className="w-4 h-4" /> Save Settings
+        </button>
+      </div>
+
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Mail className="w-5 h-5 text-blue-500" /> Newsletter Activation</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+            <div>
+              <div className="font-bold">Enable Newsletter</div>
+              <div className="text-sm text-gray-500">Allow users to subscribe to your newsletter</div>
+            </div>
+            <button 
+              onClick={() => handleUpdate({ enabled: !localSettings.enabled })}
+              className={`w-12 h-6 rounded-full transition-colors relative ${localSettings.enabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${localSettings.enabled ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+            <div>
+              <div className="font-bold">Collect Responses</div>
+              <div className="text-sm text-gray-500">Save subscriber emails to your database</div>
+            </div>
+            <button 
+              onClick={() => handleUpdate({ collectResponses: !localSettings.collectResponses })}
+              className={`w-12 h-6 rounded-full transition-colors relative ${localSettings.collectResponses ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${localSettings.collectResponses ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-purple-500" /> Subscriber Responses ({responses.length})</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-800">
+                <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase">Email</th>
+                <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase">Date</th>
+                <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase">Source</th>
+                <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {responses.length > 0 ? responses.map(res => (
+                <tr key={res.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition">
+                  <td className="py-3 px-4 font-medium">{res.email}</td>
+                  <td className="py-3 px-4 text-sm text-gray-500">{new Date(res.timestamp).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 text-sm text-gray-500">{res.sourcePage || '/'}</td>
+                  <td className="py-3 px-4 text-right">
+                    <button onClick={() => onDeleteResponse(res.id)} className="p-2 text-red-400 hover:text-red-600 transition">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={4} className="py-12 text-center text-gray-500 italic">No subscribers yet</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

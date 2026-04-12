@@ -61,6 +61,14 @@
     "users/{userId}/settings/site": {
       "schema": "SiteSettings",
       "description": "Global site settings"
+    },
+    "users/{userId}/settings/newsletter": {
+      "schema": "NewsletterSettings",
+      "description": "Newsletter global settings"
+    },
+    "users/{userId}/newsletterResponses/{responseId}": {
+      "schema": "NewsletterResponse",
+      "description": "Newsletter subscriber responses"
     }
   }
 }

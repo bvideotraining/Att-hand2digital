@@ -144,7 +144,8 @@ export interface CardItem {
 export interface CardsBlock extends BaseBlock {
   type: 'cards';
   heading: string;
-  columns: 2 | 3 | 4;
+  columns: 1 | 2 | 3 | 4;
+  layout?: 'grid' | 'list';
   cards: CardItem[];
 }
 
@@ -251,6 +252,21 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface NewsletterResponse {
+  id: string;
+  email: string;
+  timestamp: string;
+  sourcePage?: string;
+}
+
+export interface NewsletterSettings {
+  enabled: boolean;
+  collectResponses: boolean;
+  autoResponderEnabled: boolean;
+  autoResponderSubject?: string;
+  autoResponderBody?: string;
+}
+
 export interface AppState {
   users: User[];
   userProfiles?: UserProfile[];
@@ -268,4 +284,6 @@ export interface AppState {
   cmsMenu?: CmsMenuConfig;
   appMenu?: AppMenuConfig;
   mediaImages?: {id: string, url: string, name: string}[];
+  newsletterResponses?: NewsletterResponse[];
+  newsletterSettings?: NewsletterSettings;
 }
