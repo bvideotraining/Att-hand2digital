@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
-import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon, RefreshCw } from 'lucide-react';
+import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon, RefreshCw, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, MessageSquare, Edit, Download, Upload, Moon, Sun } from 'lucide-react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
 import MediaLibrary from './MediaLibrary';
 import PublicPage from './PublicPage';
@@ -1041,8 +1041,50 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, openMediaLibrar
                       <button onClick={() => onUpdate({ cards: block.cards.filter((_: any, idx: number) => idx !== i) })} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <input type="text" placeholder={t.iconName} value={card.icon} onChange={e => { const newCards = [...block.cards]; newCards[i].icon = e.target.value; onUpdate({ cards: newCards }); }} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
-                      <input type="text" placeholder={t.titleLabel} value={card.title} onChange={e => { const newCards = [...block.cards]; newCards[i].title = e.target.value; onUpdate({ cards: newCards }); }} className={`col-span-2 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      <div className="relative">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.icon || 'Icon'}</label>
+                        <div className="flex gap-2">
+                          <div className={`p-2 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                            {(() => {
+                              const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, ArrowRight, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link: LinkIcon };
+                              const IconComp = IconMap[card.icon] || Zap;
+                              return <IconComp className="w-5 h-5 text-blue-600" />;
+                            })()}
+                          </div>
+                          <select 
+                            value={card.icon} 
+                            onChange={e => { const newCards = [...block.cards]; newCards[i].icon = e.target.value; onUpdate({ cards: newCards }); }} 
+                            className={`flex-1 px-3 py-2 rounded-lg border outline-none text-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}
+                          >
+                            <optgroup label="Common">
+                              <option value="Zap">Zap</option>
+                              <option value="ShieldCheck">Shield</option>
+                              <option value="Download">Download</option>
+                              <option value="Cpu">CPU</option>
+                              <option value="Users">Users</option>
+                              <option value="Upload">Upload</option>
+                              <option value="FileText">File</option>
+                              <option value="Globe">Globe</option>
+                            </optgroup>
+                            <optgroup label="Communication">
+                              <option value="Mail">Mail</option>
+                              <option value="MessageSquare">Message</option>
+                              <option value="Bell">Bell</option>
+                            </optgroup>
+                            <optgroup label="UI Elements">
+                              <option value="Home">Home</option>
+                              <option value="Layout">Layout</option>
+                              <option value="Settings">Settings</option>
+                              <option value="Star">Star</option>
+                              <option value="Heart">Heart</option>
+                            </optgroup>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.titleLabel}</label>
+                        <input type="text" placeholder={t.titleLabel} value={card.title} onChange={e => { const newCards = [...block.cards]; newCards[i].title = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      </div>
                     </div>
                     <textarea placeholder={t.description} value={card.description} onChange={e => { const newCards = [...block.cards]; newCards[i].description = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full mt-3 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
                   </div>

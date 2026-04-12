@@ -83,8 +83,13 @@ const HomePage: React.FC<HomePageProps> = ({
             </div>
 
             <div className="flex items-center gap-4">
-              <button onClick={onLanguageToggle} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition" title={t.switchLanguage}>
-                <Globe className="w-5 h-5" />
+              <button 
+                onClick={onLanguageToggle} 
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition text-sm font-bold ${darkMode ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                title={t.switchLanguage || (language === 'ar' ? 'English' : 'العربية')}
+              >
+                <Globe className="w-4 h-4 text-blue-600" />
+                <span>{language === 'ar' ? 'English' : 'العربية'}</span>
               </button>
               <button onClick={onThemeToggle} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition" title={darkMode ? t.lightMode : t.darkMode}>
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
