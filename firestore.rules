@@ -14,7 +14,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email.matches('(?i)bvideotraining@gmail.com') ||
+        ((request.auth.token.email != null && request.auth.token.email.matches('(?i)bvideotraining@gmail.com')) ||
          request.auth.uid == 'JT8wmPCChMSTyUihnM5D29KRywV2' ||
          (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'Admin'));
@@ -25,7 +25,8 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && 
                       (
-                        (request.auth.token.email.matches('(?i)bvideotraining@gmail.com') || request.auth.uid == 'JT8wmPCChMSTyUihnM5D29KRywV2') ||
+                        (request.auth.token.email != null && request.auth.token.email.matches('(?i)bvideotraining@gmail.com')) || 
+                        request.auth.uid == 'JT8wmPCChMSTyUihnM5D29KRywV2' ||
                         (request.resource.data.role == 'HR User' && 
                          request.resource.data.status == 'pending' &&
                          request.resource.data.email == request.auth.token.email)
@@ -36,27 +37,26 @@ service cloud.firestore {
     // Rules for user-specific data
     // This matches the user document and all its subcollections recursively
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
     
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
     // Backward compatibility for migration
     match /app_data/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
     
     match /app_data/{userId}/{allPaths=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
     // Public configuration for unauthenticated users
     match /public/config {
       allow read: if true;
-      allow write: if isAuthenticated() && 
-                     (request.auth.token.email.matches('(?i)bvideotraining@gmail.com') || isAdmin());
+      allow write: if isAdmin();
     }
   }
 }

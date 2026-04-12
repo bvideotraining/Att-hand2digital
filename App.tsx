@@ -1057,7 +1057,8 @@ const App: React.FC = () => {
           await setDoc(docRef, removeUndefined(cleanData), { merge: true });
 
           // Sync to public config if admin (bvideotraining@gmail.com)
-          if (currentUser.email === 'bvideotraining@gmail.com' && ['cms', 'settings'].includes(collectionName)) {
+          const adminEmail = 'bvideotraining@gmail.com';
+          if (currentUser.email?.toLowerCase() === adminEmail && ['cms', 'settings'].includes(collectionName)) {
             const publicRef = doc(db, 'public', 'config');
             const update: any = {};
             if (collectionName === 'cms') {
@@ -1125,10 +1126,10 @@ const App: React.FC = () => {
       setSyncStatus('synced');
       setTimeout(() => setSyncStatus(null), 2000);
       alert("Branding successfully synced to public! Other devices should see the updates now.");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Manual branding sync failed", err);
       setSyncStatus('error');
-      alert("Failed to sync branding. Check console for details.");
+      alert(`Failed to sync branding: ${err.message || 'Unknown error'}`);
       // Call error handler after alert so it doesn't block the UI feedback
       try { handleFirestoreError(err, OperationType.WRITE, 'public/config'); } catch(e) {}
     } finally {
