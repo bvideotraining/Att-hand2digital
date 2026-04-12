@@ -1427,6 +1427,7 @@ const App: React.FC = () => {
       setIsConnecting(false);
     } catch (err: any) {
       console.error("Firebase login failed", err);
+      handleFirestoreError(err, OperationType.WRITE, `user_profiles/${auth.currentUser?.uid}`);
       setIsConnecting(false);
       alert("Login failed: " + err.message);
     }
@@ -1437,20 +1438,25 @@ const App: React.FC = () => {
       setIsConnecting(true);
       const creds = await createUserWithEmailAndPassword(auth, email, pass);
       
-      // Create user profile as pending
+      // Create user profile
       await setDoc(doc(db, 'user_profiles', creds.user.uid), {
         email,
-        role: 'HR User',
-        status: 'pending',
+        role: email === 'bvideotraining@gmail.com' ? 'Admin' : 'HR User',
+        status: email === 'bvideotraining@gmail.com' ? 'active' : 'pending',
         createdAt: new Date().toISOString()
       });
 
-      // Sign out immediately - must wait for activation
-      await signOut(auth);
-      setIsConnecting(false);
-      alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
+      if (email !== 'bvideotraining@gmail.com') {
+        // Sign out immediately - must wait for activation
+        await signOut(auth);
+        setIsConnecting(false);
+        alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
+      } else {
+        setIsConnecting(false);
+      }
     } catch (err: any) {
       console.error("Firebase sign up failed", err);
+      handleFirestoreError(err, OperationType.WRITE, `user_profiles/${auth.currentUser?.uid}`);
       setIsConnecting(false);
       alert("Sign up failed: " + err.message);
     }
