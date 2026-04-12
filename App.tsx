@@ -814,11 +814,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        const email = user.email?.toLowerCase() || '';
+        const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
+        const workspaceId = isSharedAdmin ? 'JT8wmPCChMSTyUihnM5D29KRywV2' : user.uid;
+
         setCurrentUser({
-          id: user.uid,
+          id: workspaceId,
           name: user.displayName || 'User',
           email: user.email || '',
-          role: 'Admin' // Default role for workspace owner
+          role: isSharedAdmin ? 'Admin' : 'User'
         });
         // Prevent overwriting Firebase data with local state on initial load
         isRemoteUpdate.current = true; 
@@ -1045,7 +1049,12 @@ const App: React.FC = () => {
     setState(localStateUpdater);
 
     if (!skipFirestore && state.storageMode === 'firebase' && currentUser) {
-      const docRef = doc(db, `users/${currentUser.id}/${collectionName}`, docId);
+      let docRef;
+      if (collectionName === 'user_profiles') {
+        docRef = doc(db, 'user_profiles', docId);
+      } else {
+        docRef = doc(db, `users/${currentUser.id}/${collectionName}`, docId);
+      }
       try {
         if (isDelete) {
           await deleteDoc(docRef);
@@ -1056,9 +1065,9 @@ const App: React.FC = () => {
           }
           await setDoc(docRef, removeUndefined(cleanData), { merge: true });
 
-          // Sync to public config if admin (bvideotraining@gmail.com)
-          const adminEmail = 'bvideotraining@gmail.com';
-          if (currentUser.email?.toLowerCase() === adminEmail && ['cms', 'settings'].includes(collectionName)) {
+          // Sync to public config if admin
+          const isSharedAdmin = currentUser.email?.toLowerCase() === 'bvideotraining@gmail.com' || currentUser.email?.toLowerCase() === 'hr.totscollege@gmail.com';
+          if (isSharedAdmin && ['cms', 'settings'].includes(collectionName)) {
             const publicRef = doc(db, 'public', 'config');
             const update: any = {};
             if (collectionName === 'cms') {
@@ -1108,9 +1117,9 @@ const App: React.FC = () => {
   };
 
   const handleSyncBrandingToPublic = async () => {
-    const adminEmail = 'bvideotraining@gmail.com';
-    if (!currentUser || currentUser.email?.toLowerCase() !== adminEmail) {
-      alert("Only the main admin can sync branding to public.");
+    const isSharedAdmin = currentUser?.email?.toLowerCase() === 'bvideotraining@gmail.com' || currentUser?.email?.toLowerCase() === 'hr.totscollege@gmail.com';
+    if (!isSharedAdmin) {
+      alert("Only admins can sync branding to public.");
       return;
     }
     setIsSyncing(true);
@@ -1393,7 +1402,7 @@ const App: React.FC = () => {
 
   const handleFirebaseEmailLogin = async (rawEmail: string, pass: string) => {
     const email = rawEmail.toLowerCase().trim();
-    const adminEmail = 'bvideotraining@gmail.com';
+    const isAdminEmail = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
     try {
       setIsConnecting(true);
       const creds = await signInWithEmailAndPassword(auth, email, pass);
@@ -1402,7 +1411,7 @@ const App: React.FC = () => {
       const profileSnap = await getDoc(doc(db, 'user_profiles', creds.user.uid));
       if (profileSnap.exists()) {
         const profile = profileSnap.data();
-        if (profile.status !== 'active' && email !== adminEmail) {
+        if (profile.status !== 'active' && !isAdminEmail) {
           await signOut(auth);
           setIsConnecting(false);
           const t = TRANSLATIONS[state.language] || TRANSLATIONS.ar;
@@ -1413,12 +1422,12 @@ const App: React.FC = () => {
         // If no profile exists, create one
         await setDoc(doc(db, 'user_profiles', creds.user.uid), {
           email,
-          role: email === adminEmail ? 'Admin' : 'HR User',
-          status: email === adminEmail ? 'active' : 'pending',
+          role: isAdminEmail ? 'Admin' : 'HR User',
+          status: isAdminEmail ? 'active' : 'pending',
           createdAt: new Date().toISOString()
         });
         
-        if (email !== adminEmail) {
+        if (!isAdminEmail) {
           await signOut(auth);
           setIsConnecting(false);
           alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
@@ -1441,7 +1450,7 @@ const App: React.FC = () => {
 
   const handleFirebaseEmailSignUp = async (rawEmail: string, pass: string) => {
     const email = rawEmail.toLowerCase().trim();
-    const adminEmail = 'bvideotraining@gmail.com';
+    const isAdminEmail = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
     try {
       setIsConnecting(true);
       const creds = await createUserWithEmailAndPassword(auth, email, pass);
@@ -1449,12 +1458,12 @@ const App: React.FC = () => {
       // Create user profile
       await setDoc(doc(db, 'user_profiles', creds.user.uid), {
         email,
-        role: email === adminEmail ? 'Admin' : 'HR User',
-        status: email === adminEmail ? 'active' : 'pending',
+        role: isAdminEmail ? 'Admin' : 'HR User',
+        status: isAdminEmail ? 'active' : 'pending',
         createdAt: new Date().toISOString()
       });
 
-      if (email !== adminEmail) {
+      if (!isAdminEmail) {
         // Sign out immediately - must wait for activation
         await signOut(auth);
         setIsConnecting(false);
