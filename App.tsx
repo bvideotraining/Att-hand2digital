@@ -1765,6 +1765,7 @@ const App: React.FC = () => {
                 siteSettings={state.siteSettings}
                 appMenuConfig={state.appMenu}
                 cmsMenuConfig={state.cmsMenu}
+                pages={state.cmsPages}
                 onGetStarted={() => setShowLanding(false)} 
                 onSignIn={() => setShowLanding(false)}
                 onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}

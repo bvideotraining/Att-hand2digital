@@ -92,6 +92,7 @@ export type BlockType = 'hero' | 'richText' | 'cards' | 'contactForm' | 'newslet
 export interface BaseBlock {
   id: string;
   type: BlockType;
+  width?: number; // percentage 0-100
 }
 
 export interface NewsletterBlock extends BaseBlock {

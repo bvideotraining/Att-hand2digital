@@ -324,90 +324,126 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   }
 
   return (
-    <div className={`space-y-8 animate-in fade-in duration-500 ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold tracking-tight">{t.title}</h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={() => {
-              handleGlobalSave();
-              const btn = document.getElementById('cms-save-btn');
-              if (btn) {
-                const originalText = btn.innerHTML;
-                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="20 6 9 17 4 12"></polyline></svg> Saved!`;
-                btn.classList.add('bg-green-600', 'text-white', 'border-green-600');
-                btn.classList.remove('border-gray-200', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-800');
-                setTimeout(() => {
-                  btn.innerHTML = originalText;
-                  btn.classList.remove('bg-green-600', 'text-white', 'border-green-600');
-                  btn.classList.add('border-gray-200', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-800');
-                }, 2000);
-              }
-            }}
-            id="cms-save-btn"
-            className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            <Save className="w-4 h-4" />
-            {t.saveAllChanges}
-          </button>
-          {onSyncBrandingToPublic && (
-            <button 
-              onClick={onSyncBrandingToPublic}
-              disabled={isSyncing}
-              className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border ${isSyncing ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/20'}`}
-              title="Sync current branding to public view for all devices"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync to Public'}
-            </button>
-          )}
-          <button 
-            onClick={() => setActiveTab('menu')}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'menu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-          >
-            <Layout className="w-4 h-4" />
-            {t.menuStyle}
-          </button>
-          <button 
-            onClick={() => setActiveTab('appMenu')}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'appMenu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-          >
-            <PanelBottom className="w-4 h-4" />
-            App Menu
-          </button>
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'settings' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-          >
-            <Settings className="w-4 h-4" />
-            {t.settings}
-          </button>
-          <button 
-            onClick={() => setActiveTab('newsletter')}
-            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${activeTab === 'newsletter' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-          >
-            <Mail className="w-4 h-4" />
-            Newsletter
-          </button>
-          <button 
-            onClick={() => setIsMediaLibraryOpen(true)}
-            className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 border border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-900/50 dark:text-orange-400 dark:hover:bg-orange-900/20"
-          >
-            <ImageIcon className="w-4 h-4" />
-            {t.mediaLibrary}
-          </button>
-          <button 
-            onClick={handleAddPage}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            {t.newPage}
-          </button>
-        </div>
-      </div>
+    <div className={`animate-in fade-in duration-500 ${language === 'ar' ? 'font-arabic' : ''}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Sidebar Menu */}
+        <aside className="w-full lg:w-64 shrink-0">
+          <div className={`sticky top-24 p-4 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm space-y-2`}>
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={() => {
+                  handleGlobalSave();
+                  const btn = document.getElementById('cms-save-btn-sidebar');
+                  if (btn) {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Saved!`;
+                    btn.classList.add('text-green-600');
+                    setTimeout(() => {
+                      btn.innerHTML = originalText;
+                      btn.classList.remove('text-green-600');
+                    }, 2000);
+                  }
+                }}
+                id="cms-save-btn-sidebar"
+                className="flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300"
+              >
+                <Save className="w-4 h-4" />
+                {t.saveAllChanges}
+              </button>
+              
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+              
+              {onSyncBrandingToPublic && (
+                <button 
+                  onClick={onSyncBrandingToPublic}
+                  disabled={isSyncing}
+                  className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${isSyncing ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? t.syncing : t.syncToPublic}
+                </button>
+              )}
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setActiveTab('pages')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'pages' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <FileText className="w-4 h-4" />
+                {t.pages}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setActiveTab('menu')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'menu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <Layout className="w-4 h-4" />
+                {t.menuStyle}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setActiveTab('appMenu')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'appMenu' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <PanelBottom className="w-4 h-4" />
+                {t.appMenu}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'settings' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <Settings className="w-4 h-4" />
+                {t.settings}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setActiveTab('newsletter')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'newsletter' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <Mail className="w-4 h-4" />
+                {t.newsletter}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
+                onClick={() => setIsMediaLibraryOpen(true)}
+                className="flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
+              >
+                <ImageIcon className="w-4 h-4" />
+                {t.mediaLibrary}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 min-w-0 space-y-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-3xl font-extrabold tracking-tight">{t.title}</h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">{t.subtitle}</p>
+            </div>
+            {activeTab === 'pages' && (
+              <button 
+                onClick={handleAddPage}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                {t.newPage}
+              </button>
+            )}
+          </div>
 
       {activeTab === 'pages' ? (
         <div className="space-y-4">
@@ -492,8 +528,10 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
       ) : (
         <SettingsEditor settings={localSettings} onSave={onSaveSettings} onChange={handleSettingsChange} darkMode={darkMode} t={t} language={language} />
       )}
+      </main>
+    </div>
 
-      <MediaLibrary 
+    <MediaLibrary 
         isOpen={isMediaLibraryOpen} 
         onClose={() => {
           setIsMediaLibraryOpen(false);
@@ -852,13 +890,30 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
           </div>
           <span className="font-bold">{getTitle()}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => onMove('up')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronUp className="w-4 h-4" /></button>
-          <button onClick={() => onMove('down')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronDown className="w-4 h-4" /></button>
-          <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          <button onClick={onRemove} className="p-1.5 text-red-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4" /></button>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase">{t.width || 'Width'}</span>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 px-2 py-1">
+              <input 
+                type="range" 
+                min="20" 
+                max="100" 
+                step="5" 
+                value={block.width || 100} 
+                onChange={e => onUpdate({ width: parseInt(e.target.value) })}
+                className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <span className="text-[10px] font-bold w-8 text-center">{block.width || 100}%</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => onMove('up')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronUp className="w-4 h-4" /></button>
+            <button onClick={() => onMove('down')} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><ChevronDown className="w-4 h-4" /></button>
+            <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            <button onClick={onRemove} className="p-1.5 text-red-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4" /></button>
+          </div>
         </div>
       </div>
       

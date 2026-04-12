@@ -81,7 +81,7 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
     }
   };
 
-  const menuPages = pages.filter(p => p.inMenu && p.status === 'published');
+  const menuPages = pages.filter(p => p.inMenu);
 
   return (
     <div className={`min-h-screen font-sans ${darkMode ? 'bg-gray-950 text-white' : 'bg-white text-gray-900'} transition-colors duration-300`}>
@@ -182,7 +182,9 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
 
       <main>
         {page.blocks.map(block => (
-          <BlockRenderer key={block.id} block={block} darkMode={darkMode} onNewsletterSubmit={onNewsletterSubmit} />
+          <div key={block.id} style={{ width: block.width ? `${block.width}%` : '100%', margin: '0 auto' }}>
+            <BlockRenderer block={block} darkMode={darkMode} onNewsletterSubmit={onNewsletterSubmit} />
+          </div>
         ))}
       </main>
     </div>

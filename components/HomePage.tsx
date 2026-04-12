@@ -24,6 +24,7 @@ interface HomePageProps {
   siteSettings?: import('../types').SiteSettings;
   appMenuConfig?: import('../types').AppMenuConfig;
   cmsMenuConfig?: import('../types').CmsMenuConfig;
+  pages?: import('../types').CmsPage[];
   onGetStarted: () => void;
   onSignIn: () => void;
   onLanguageToggle: () => void;
@@ -37,6 +38,7 @@ const HomePage: React.FC<HomePageProps> = ({
   siteSettings,
   appMenuConfig,
   cmsMenuConfig,
+  pages = [],
   onGetStarted, 
   onSignIn,
   onLanguageToggle,
@@ -77,9 +79,23 @@ const HomePage: React.FC<HomePageProps> = ({
             </div>
             
             <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.features}</a>
-              <a href="#how-it-works" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.howItWorks}</a>
-              <a href="#contact" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.contactUs}</a>
+              {pages.filter(p => p.inMenu).length > 0 ? (
+                pages.filter(p => p.inMenu).map(p => (
+                  <a 
+                    key={p.id} 
+                    href={`#${p.slug === '/' ? '' : p.slug}`} 
+                    className="text-sm font-bold hover:text-blue-600 transition-colors"
+                  >
+                    {p.title}
+                  </a>
+                ))
+              ) : (
+                <>
+                  <a href="#features" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.features}</a>
+                  <a href="#how-it-works" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.howItWorks}</a>
+                  <a href="#contact" className="text-sm font-medium hover:text-blue-600 transition-colors">{t.contactUs}</a>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
