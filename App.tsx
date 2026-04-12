@@ -812,11 +812,17 @@ const App: React.FC = () => {
 
   // Firebase Auth Listener
   useEffect(() => {
+    const handleHashChange = () => {
+      // Force re-render on hash change to update PublicPage
+      setState(p => ({ ...p }));
+    };
+    window.addEventListener('hashchange', handleHashChange);
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const email = user.email?.toLowerCase() || '';
         const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
-        const workspaceId = isSharedAdmin ? 'JT8wmPCChMSTyUihnM5D29KRywV2' : user.uid;
+        const workspaceId = user.uid;
 
         setCurrentUser({
           id: workspaceId,
@@ -836,7 +842,10 @@ const App: React.FC = () => {
       }
       setIsAuthReady(true);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, []);
 
   // Public Data Listener (for unauthenticated users)

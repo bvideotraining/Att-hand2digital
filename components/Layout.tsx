@@ -65,10 +65,23 @@ const Layout: React.FC<LayoutProps> = ({
     ]
   }), [darkMode, t]);
 
-  const menu = useMemo(() => ({
-    ...defaultMenuConfig,
-    ...(appMenuConfig || {})
-  }), [appMenuConfig, defaultMenuConfig]);
+  const menu = useMemo(() => {
+    const merged = {
+      ...defaultMenuConfig,
+      ...(appMenuConfig || {})
+    };
+    
+    if (appMenuConfig?.items) {
+      merged.items = appMenuConfig.items.map(item => {
+        const defaultItem = defaultMenuConfig.items.find(di => di.id === item.id);
+        if (defaultItem) {
+          return { ...item, name: defaultItem.name };
+        }
+        return item;
+      });
+    }
+    return merged;
+  }, [appMenuConfig, defaultMenuConfig]);
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'} transition-colors duration-300`} style={{ fontFamily: menu.fontFamily }}>
