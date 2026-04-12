@@ -173,6 +173,7 @@ export interface FormField {
 
 export interface FormBlock extends BaseBlock {
   type: 'contactForm';
+  template?: 'contact' | 'newsletter' | 'signup' | 'custom';
   title: string;
   titleAr?: string;
   subtitle: string;
@@ -187,6 +188,12 @@ export interface FormBlock extends BaseBlock {
   submitTextColor: string;
   destination: 'firestore' | 'webhook';
   firestoreCollection?: string;
+  successMessage?: string;
+  successMessageAr?: string;
+  redirectUrl?: string;
+  showLabels?: boolean;
+  buttonSize?: 'small' | 'medium' | 'large';
+  buttonStyle?: 'solid' | 'outline' | 'ghost';
 }
 
 export interface FooterColumn {

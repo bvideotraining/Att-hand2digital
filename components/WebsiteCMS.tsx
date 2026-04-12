@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
-import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, FileText, X, Link as LinkIcon, RefreshCw, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, MessageSquare, Edit, Download, Upload, Moon, Sun } from 'lucide-react';
+import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, UserPlus, FileText, X, Link as LinkIcon, RefreshCw, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, MessageSquare, Edit, Download, Upload, Moon, Sun } from 'lucide-react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
 import MediaLibrary from './MediaLibrary';
 import PublicPage from './PublicPage';
@@ -1443,7 +1443,55 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
           )}
 
           {block.type === 'contactForm' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-900/10 border-blue-800/30' : 'bg-blue-50 border-blue-100'}`}>
+                <label className="block text-xs font-bold text-blue-500 uppercase mb-2">Form Template</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { id: 'contact', label: 'Contact Form', icon: MessageSquare },
+                    { id: 'newsletter', label: 'Newsletter', icon: Mail },
+                    { id: 'signup', label: 'Sign Up', icon: UserPlus },
+                    { id: 'custom', label: 'Custom Form', icon: Edit }
+                  ].map(tmpl => (
+                    <button
+                      key={tmpl.id}
+                      onClick={() => {
+                        const updates: any = { template: tmpl.id };
+                        if (tmpl.id === 'contact') {
+                          updates.title = 'Contact Us';
+                          updates.titleAr = 'اتصل بنا';
+                          updates.fields = [
+                            { id: 'name', type: 'text', label: 'Full Name', labelAr: 'الاسم الكامل', required: true },
+                            { id: 'email', type: 'email', label: 'Email Address', labelAr: 'البريد الإلكتروني', required: true },
+                            { id: 'subject', type: 'text', label: 'Subject', labelAr: 'الموضوع', required: true },
+                            { id: 'message', type: 'textarea', label: 'Message', labelAr: 'الرسالة', required: true }
+                          ];
+                        } else if (tmpl.id === 'newsletter') {
+                          updates.title = 'Subscribe to Newsletter';
+                          updates.titleAr = 'اشترك في النشرة الإخبارية';
+                          updates.fields = [
+                            { id: 'email', type: 'email', label: 'Email Address', labelAr: 'البريد الإلكتروني', required: true }
+                          ];
+                        } else if (tmpl.id === 'signup') {
+                          updates.title = 'Create Account';
+                          updates.titleAr = 'إنشاء حساب';
+                          updates.fields = [
+                            { id: 'name', type: 'text', label: 'Name', labelAr: 'الاسم', required: true },
+                            { id: 'email', type: 'email', label: 'Email', labelAr: 'البريد الإلكتروني', required: true },
+                            { id: 'password', type: 'text', label: 'Password', labelAr: 'كلمة المرور', required: true }
+                          ];
+                        }
+                        onUpdate(updates);
+                      }}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition ${block.template === tmpl.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-400'}`}
+                    >
+                      <tmpl.icon className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase">{tmpl.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   <div>
@@ -1508,6 +1556,62 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                   {t.addField}
                 </button>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                  <h4 className="text-sm font-bold mb-4 flex items-center gap-2"><Settings className="w-4 h-4" /> Behavior Settings</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Success Message (English)</label>
+                      <input type="text" value={block.successMessage || 'Thank you! Your message has been sent.'} onChange={e => onUpdate({ successMessage: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 text-right">رسالة النجاح بالعربية</label>
+                      <input type="text" value={block.successMessageAr || 'شكراً لك! تم إرسال رسالتك بنجاح.'} onChange={e => onUpdate({ successMessageAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`} dir="rtl" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Redirect URL (Optional)</label>
+                      <input type="text" value={block.redirectUrl || ''} onChange={e => onUpdate({ redirectUrl: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`} placeholder="https://..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                  <h4 className="text-sm font-bold mb-4 flex items-center gap-2"><Layout className="w-4 h-4" /> Style Settings</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Form Width</label>
+                        <select value={block.formWidth || 'medium'} onChange={e => onUpdate({ formWidth: e.target.value })} className={`w-full px-3 py-2 rounded-xl border outline-none ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`}>
+                          <option value="narrow">Narrow</option>
+                          <option value="medium">Medium</option>
+                          <option value="wide">Wide</option>
+                          <option value="full">Full</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Button Style</label>
+                        <select value={block.buttonStyle || 'solid'} onChange={e => onUpdate({ buttonStyle: e.target.value })} className={`w-full px-3 py-2 rounded-xl border outline-none ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`}>
+                          <option value="solid">Solid</option>
+                          <option value="outline">Outline</option>
+                          <option value="ghost">Ghost</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={block.showLabels !== false} onChange={e => onUpdate({ showLabels: e.target.checked })} className="w-4 h-4 rounded text-blue-600" />
+                      <label className="text-sm">Show Field Labels</label>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Background Color</label>
+                      <div className="flex gap-2">
+                        <input type="color" value={block.backgroundColor || '#ffffff'} onChange={e => onUpdate({ backgroundColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer" />
+                        <input type="text" value={block.backgroundColor || '#ffffff'} onChange={e => onUpdate({ backgroundColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-4">
                   <div>
@@ -1517,6 +1621,15 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                   <div>
                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">نص زر الإرسال بالعربية (Arabic Submit Button Text)</label>
                     <input type="text" value={block.submitTextAr || ''} onChange={e => onUpdate({ submitTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Button Background Color</label>
+                    <div className="flex gap-2">
+                      <input type="color" value={block.submitBgColor || '#2563eb'} onChange={e => onUpdate({ submitBgColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer" />
+                      <input type="text" value={block.submitBgColor || '#2563eb'} onChange={e => onUpdate({ submitBgColor: e.target.value })} className={`flex-1 px-4 py-2 rounded-xl border outline-none ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-300'}`} />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock } from '../types';
 import { motion } from 'framer-motion';
-import { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, ArrowRight, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link as LinkIcon } from 'lucide-react';
+import { Zap, ShieldCheck, CheckCircle, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, ArrowRight, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link as LinkIcon } from 'lucide-react';
 
 interface PublicPageProps {
   page: CmsPage;
@@ -234,6 +234,18 @@ const BlockRenderer: React.FC<{
     }
   };
 
+  useEffect(() => {
+    if (isSuccess) {
+      const b = block as FormBlock;
+      if (b.type === 'contactForm' && b.redirectUrl) {
+        const timer = setTimeout(() => {
+          window.location.href = b.redirectUrl!;
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isSuccess, block]);
+
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -447,94 +459,91 @@ const BlockRenderer: React.FC<{
     }
     case 'contactForm': {
       const b = block as FormBlock;
+      const widthClass = b.formWidth === 'narrow' ? 'max-w-md' : b.formWidth === 'wide' ? 'max-w-5xl' : b.formWidth === 'full' ? 'max-w-full' : 'max-w-3xl';
+      const paddingClass = b.sectionPadding === 'small' ? 'py-12' : b.sectionPadding === 'large' ? 'py-32' : 'py-24';
+      
       return (
-        <section className="py-24 px-4" style={{ backgroundColor: b.backgroundColor }}>
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">{isAr && b.titleAr ? b.titleAr : b.title}</h2>
-              <p className="text-gray-500 dark:text-gray-400">{isAr && b.subtitleAr ? b.subtitleAr : b.subtitle}</p>
-            </div>
-            <form onSubmit={handleContactSubmit} className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-xl space-y-6`}>
-              {b.fields && b.fields.length > 0 ? (
-                <div className="space-y-6">
-                  {b.fields.map(field => (
-                    <div key={field.id}>
-                      <label className="block text-sm font-medium mb-2">{isAr && field.labelAr ? field.labelAr : field.label} {field.required && <span className="text-red-500">*</span>}</label>
-                      {field.type === 'textarea' ? (
-                        <textarea 
-                          required={field.required} 
-                          rows={4} 
-                          value={formData[field.id] || ''}
-                          onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
-                          className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
-                        ></textarea>
-                      ) : (
-                        <input 
-                          type={field.type} 
-                          required={field.required} 
-                          value={formData[field.id] || ''}
-                          onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
-                          className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{isAr ? 'الاسم الكامل' : 'Full Name'}</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={formData.fullName || ''}
-                        onChange={e => setFormData(p => ({ ...p, fullName: e.target.value }))}
-                        className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{isAr ? 'البريد الإلكتروني' : 'Email Address'}</label>
-                      <input 
-                        type="email" 
-                        required 
-                        value={formData.email || ''}
-                        onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
-                        className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{isAr ? 'الموضوع' : 'Subject'}</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={formData.subject || ''}
-                      onChange={e => setFormData(p => ({ ...p, subject: e.target.value }))}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{isAr ? 'الرسالة' : 'Message'}</label>
-                    <textarea 
-                      rows={4} 
-                      required 
-                      value={formData.message || ''}
-                      onChange={e => setFormData(p => ({ ...p, message: e.target.value }))}
-                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
-                    ></textarea>
-                  </div>
-                </>
-              )}
-              <button 
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center gap-2"
-                style={{ backgroundColor: b.submitBgColor, color: b.submitTextColor, opacity: isSubmitting ? 0.7 : 1 }}
+        <section className={`${paddingClass} px-4 transition-colors`} style={{ backgroundColor: b.backgroundColor }}>
+          <div className={`${widthClass} mx-auto`}>
+            {(b.title || b.titleAr) && (
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">{isAr && b.titleAr ? b.titleAr : b.title}</h2>
+                <p className="text-gray-500 dark:text-gray-400">{isAr && b.subtitleAr ? b.subtitleAr : b.subtitle}</p>
+              </div>
+            )}
+            
+            {isSuccess ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`p-12 rounded-3xl border text-center ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-xl`}
               >
-                {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : isSuccess ? (isAr ? 'تم الإرسال بنجاح!' : 'Sent Successfully!') : (isAr && b.submitTextAr ? b.submitTextAr : b.submitText)}
-              </button>
-            </form>
+                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">{isAr ? 'تم الإرسال!' : 'Success!'}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-lg">
+                  {isAr && b.successMessageAr ? b.successMessageAr : (b.successMessage || (isAr ? 'شكراً لك! تم إرسال رسالتك بنجاح.' : 'Thank you! Your message has been sent.'))}
+                </p>
+                {b.redirectUrl && (
+                  <p className="mt-6 text-sm text-blue-600">
+                    {isAr ? 'سيتم تحويلك قريباً...' : 'Redirecting you shortly...'}
+                  </p>
+                )}
+              </motion.div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-xl space-y-6`}>
+                {b.fields && b.fields.length > 0 && (
+                  <div className="space-y-6">
+                    {b.fields.map(field => (
+                      <div key={field.id}>
+                        {(b.showLabels !== false) && (
+                          <label className="block text-sm font-medium mb-2">
+                            {isAr && field.labelAr ? field.labelAr : field.label} {field.required && <span className="text-red-500">*</span>}
+                          </label>
+                        )}
+                        {field.type === 'textarea' ? (
+                          <textarea 
+                            required={field.required} 
+                            rows={4} 
+                            placeholder={!(b.showLabels !== false) ? (isAr && field.labelAr ? field.labelAr : field.label) : ''}
+                            value={formData[field.id] || ''}
+                            onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
+                            className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                          ></textarea>
+                        ) : (
+                          <input 
+                            type={field.type} 
+                            required={field.required} 
+                            placeholder={!(b.showLabels !== false) ? (isAr && field.labelAr ? field.labelAr : field.label) : ''}
+                            value={formData[field.id] || ''}
+                            onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
+                            className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full font-bold transition shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] ${
+                    b.buttonSize === 'small' ? 'py-2 text-sm rounded-lg' : 
+                    b.buttonSize === 'large' ? 'py-5 text-xl rounded-2xl' : 
+                    'py-4 text-lg rounded-xl'
+                  }`}
+                  style={{ 
+                    backgroundColor: b.buttonStyle === 'outline' ? 'transparent' : b.submitBgColor, 
+                    color: b.buttonStyle === 'outline' ? b.submitBgColor : b.submitTextColor,
+                    border: b.buttonStyle === 'outline' ? `2px solid ${b.submitBgColor}` : 'none',
+                    opacity: isSubmitting ? 0.7 : 1 
+                  }}
+                >
+                  {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : (isAr && b.submitTextAr ? b.submitTextAr : b.submitText)}
+                </button>
+              </form>
+            )}
           </div>
         </section>
       );
