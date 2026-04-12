@@ -9,30 +9,33 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.uid == 'JT8wmPCChMSTyUihnM5D29KRywV2' || 
-        (request.auth.token.email != null && request.auth.token.email.matches('(?i)bvideotraining@gmail.com')) ||
-        (request.auth.token.email != null && request.auth.token.email.matches('(?i)hr.totscollege@gmail.com'))
+        request.auth.token.email == 'bvideotraining@gmail.com' ||
+        request.auth.token.email == 'hr.totscollege@gmail.com'
       );
     }
 
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles - only owner or admin can write, authenticated users can read
     match /user_profiles/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Temporarily allow all authenticated users to write their profile to avoid login blocks
+      allow write: if isOwner(userId) || isAdmin();
     }
 
+    // User data - only owner or admin can access
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow read, write: if isOwner(userId) || isAdmin();
     }
     
-    match /users/{userId} {
-      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-    }
-
+    // Legacy app_data
     match /app_data/{userId}/{allPaths=**} {
-      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
-    match /public/config {
+    // Public configuration - readable by everyone, writable only by admin
+    match /public/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin();
     }
