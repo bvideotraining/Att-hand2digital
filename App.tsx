@@ -1703,6 +1703,8 @@ const App: React.FC = () => {
                 pages={state.cmsPages}
                 menuConfig={state.cmsMenu}
                 darkMode={state.darkMode}
+                language={state.language}
+                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
                 onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
                 onSignIn={() => setShowLanding(false)}
               />

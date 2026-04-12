@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock } from '../types';
 import { motion } from 'framer-motion';
-import { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, ArrowRight } from 'lucide-react';
+import { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, ArrowRight, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link as LinkIcon } from 'lucide-react';
 
 interface PublicPageProps {
   page: CmsPage;
   pages: CmsPage[];
   menuConfig: CmsMenuConfig;
   darkMode: boolean;
+  language: string;
+  onLanguageToggle: () => void;
   onThemeToggle: () => void;
   onSignIn: () => void;
 }
 
-const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, onThemeToggle, onSignIn }) => {
+const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, language, onLanguageToggle, onThemeToggle, onSignIn }) => {
   const menuConfig = React.useMemo(() => ({
     backgroundStyle: 'solid' as const,
     backgroundColor: '#ffffff',
@@ -135,6 +137,15 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
                 ))}
               </div>
             )}
+
+            <button 
+              onClick={onLanguageToggle} 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition text-sm font-bold ${darkMode ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+              style={{ color: menuConfig.textColor }}
+            >
+              <Globe className="w-5 h-5 text-blue-600" />
+              <span>{language === 'ar' ? 'English' : 'العربية'}</span>
+            </button>
 
             <button onClick={onThemeToggle} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: menuConfig.textColor }}>
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -356,7 +367,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean }> = ({ block
             {b.heading && <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">{b.heading}</h2>}
             <div className={`grid grid-cols-1 ${gridCols} gap-8`}>
               {b.cards.map((card, i) => {
-                const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare };
+                const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, ArrowRight, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link: LinkIcon };
                 const IconComponent = IconMap[card.icon] || Zap;
                 return (
                   <motion.div 
