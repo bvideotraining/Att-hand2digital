@@ -1126,6 +1126,7 @@ const App: React.FC = () => {
       alert("Branding successfully synced to public! Other devices should see the updates now.");
     } catch (err) {
       console.error("Manual branding sync failed", err);
+      handleFirestoreError(err, OperationType.WRITE, 'public/config');
       setSyncStatus('error');
       alert("Failed to sync branding. Check console for details.");
     } finally {
@@ -1403,18 +1404,21 @@ const App: React.FC = () => {
           alert(profile.status === 'pending' ? t.accountPending : t.accountDeactivated);
           return;
         }
-      } else if (email !== 'bvideotraining@gmail.com') {
-        // If no profile exists and not the main admin, create one as pending and sign out
+      } else {
+        // If no profile exists, create one
         await setDoc(doc(db, 'user_profiles', creds.user.uid), {
           email,
-          role: 'HR User',
-          status: 'pending',
+          role: email === 'bvideotraining@gmail.com' ? 'Admin' : 'HR User',
+          status: email === 'bvideotraining@gmail.com' ? 'active' : 'pending',
           createdAt: new Date().toISOString()
         });
-        await signOut(auth);
-        setIsConnecting(false);
-        alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
-        return;
+        
+        if (email !== 'bvideotraining@gmail.com') {
+          await signOut(auth);
+          setIsConnecting(false);
+          alert((TRANSLATIONS[state.language] || TRANSLATIONS.ar).accountPending);
+          return;
+        }
       }
 
       isRemoteUpdate.current = true;

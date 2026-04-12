@@ -14,8 +14,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'Admin' ||
-         request.auth.token.email == 'bvideotraining@gmail.com');
+        (request.auth.token.email == 'bvideotraining@gmail.com' ||
+         (exists(/databases/$(database)/documents/user_profiles/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'Admin'));
     }
 
     // Global User Profiles for Activation/Management
@@ -50,8 +51,7 @@ service cloud.firestore {
     // Public configuration for unauthenticated users
     match /public/config {
       allow read: if true;
-      allow write: if isAuthenticated() && 
-                     request.auth.token.email == 'bvideotraining@gmail.com';
+      allow write: if isAdmin();
     }
   }
 }
