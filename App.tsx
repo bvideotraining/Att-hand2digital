@@ -740,11 +740,42 @@ const App: React.FC = () => {
         setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
       } else {
         setCurrentUser(null);
+        // Reset to initial state but keep firebase mode to trigger public fetch if needed
+        // Actually, we want to keep the storageMode as firebase if it was already set
       }
       setIsAuthReady(true);
     });
     return () => unsubscribe();
   }, []);
+
+  // Public Data Listener (for unauthenticated users)
+  useEffect(() => {
+    if (isAuthReady && !currentUser) {
+      const unsubPublic = onSnapshot(doc(db, 'public', 'config'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          let pages = data.cmsPages;
+          if (pages && !Array.isArray(pages) && typeof pages === 'object') {
+            const keys = Object.keys(pages).filter(k => !isNaN(Number(k))).sort((a, b) => Number(a) - Number(b));
+            if (keys.length > 0) {
+              pages = keys.map(k => (pages as any)[k]);
+            }
+          }
+          
+          setState(p => ({
+            ...p,
+            cmsPages: pages || p.cmsPages,
+            cmsMenu: data.cmsMenu || p.cmsMenu,
+            appMenu: data.appMenu || p.appMenu,
+            siteSettings: data.siteSettings || p.siteSettings,
+            isDatabaseLoaded: true,
+            storageMode: 'firebase'
+          }));
+        }
+      }, (err) => console.warn("Public config fetch failed", err));
+      return () => unsubPublic();
+    }
+  }, [isAuthReady, currentUser]);
 
   // Firebase Data Sync & Migration
   useEffect(() => {
@@ -925,6 +956,22 @@ const App: React.FC = () => {
             delete cleanData.previewUrl;
           }
           await setDoc(docRef, removeUndefined(cleanData), { merge: true });
+
+          // Sync to public config if admin (bvideotraining@gmail.com)
+          if (currentUser.email === 'bvideotraining@gmail.com' && ['cms', 'settings'].includes(collectionName)) {
+            const publicRef = doc(db, 'public', 'config');
+            const update: any = {};
+            if (collectionName === 'cms') {
+              if (docId === 'pages') update.cmsPages = Array.isArray(data) ? data : (data.data || []);
+              if (docId === 'menu') update.cmsMenu = data;
+              if (docId === 'appMenu') update.appMenu = data;
+            } else if (collectionName === 'settings' && docId === 'site') {
+              update.siteSettings = data;
+            }
+            if (Object.keys(update).length > 0) {
+              await setDoc(publicRef, removeUndefined(update), { merge: true });
+            }
+          }
         }
       } catch (err) {
         handleFirestoreError(err, isDelete ? OperationType.DELETE : OperationType.WRITE, docRef.path);

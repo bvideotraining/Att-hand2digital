@@ -81,6 +81,7 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
     onSaveMenu(localMenu);
     if (onSaveAppMenu && localAppMenu) onSaveAppMenu(localAppMenu);
     onSaveSettings(localSettings);
+    onSavePages(pages);
     if (onForceSave) onForceSave();
   };
 

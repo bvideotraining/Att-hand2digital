@@ -30,5 +30,13 @@ service cloud.firestore {
     match /app_data/{userId}/{allPaths=**} {
       allow read, write: if isOwner(userId);
     }
+
+    // Public configuration for unauthenticated users
+    match /public/config {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+                     request.auth.token.email == 'bvideotraining@gmail.com' && 
+                     request.auth.token.email_verified == true;
+    }
   }
 }
