@@ -806,6 +806,7 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'error' | 'syncing' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
   
   const legacyFileInputRef = useRef<HTMLInputElement>(null);
   const isRemoteUpdate = useRef(false);
@@ -813,6 +814,7 @@ const App: React.FC = () => {
   // Firebase Auth Listener
   useEffect(() => {
     const handleHashChange = () => {
+      setCurrentHash(window.location.hash);
       // Force re-render on hash change to update PublicPage
       setState(p => ({ ...p }));
     };
@@ -887,7 +889,7 @@ const App: React.FC = () => {
       const uid = currentUser.id;
       let unsubFiles: any, unsubUsers: any, unsubDict: any, unsubVisual: any, unsubHistory: any;
       let unsubPages: any, unsubMenu: any, unsubAppMenu: any, unsubSite: any, unsubMedia: any, unsubProfiles: any;
-      let unsubNewsletterSettings: any, unsubNewsletterResponses: any;
+      let unsubNewsletterSettings: any, unsubNewsletterResponses: any, unsubContactResponses: any;
 
       // Test connection to Firestore
       const testConnection = async () => {
@@ -983,6 +985,11 @@ const App: React.FC = () => {
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, newsletterResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/newsletterResponses`));
+
+        unsubContactResponses = onSnapshot(collection(db, `users/${uid}/contactResponses`), (snap) => {
+          if (snap.empty && isRemoteUpdate.current) return;
+          setState(p => ({ ...p, contactResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
+        }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/contactResponses`));
 
         // Global User Profiles (Admin only)
         if (currentUser.email === 'bvideotraining@gmail.com') {
@@ -1311,6 +1318,22 @@ const App: React.FC = () => {
       if (state.cmsMenu) await setDoc(doc(db, `users/${uid}/cms`, 'menu'), removeUndefined(state.cmsMenu));
       if (state.appMenu) await setDoc(doc(db, `users/${uid}/cms`, 'appMenu'), removeUndefined(state.appMenu));
       if (state.siteSettings) await setDoc(doc(db, `users/${uid}/settings`, 'site'), removeUndefined(state.siteSettings));
+      if (state.newsletterSettings) await setDoc(doc(db, `users/${uid}/settings`, 'newsletter'), removeUndefined(state.newsletterSettings));
+      if (state.mediaImages && state.mediaImages.length > 0) {
+        for (const img of state.mediaImages) {
+          await setDoc(doc(db, `users/${uid}/mediaImages`, img.id), removeUndefined(img));
+        }
+      }
+      if (state.newsletterResponses && state.newsletterResponses.length > 0) {
+        for (const res of state.newsletterResponses) {
+          await setDoc(doc(db, `users/${uid}/newsletterResponses`, res.id), removeUndefined(res));
+        }
+      }
+      if (state.contactResponses && state.contactResponses.length > 0) {
+        for (const res of state.contactResponses) {
+          await setDoc(doc(db, `users/${uid}/contactResponses`, res.id), removeUndefined(res));
+        }
+      }
 
       console.log("Sync completed successfully.");
       setIsSyncing(false);
@@ -1325,8 +1348,6 @@ const App: React.FC = () => {
   };
 
   const handleNewsletterSubmit = async (email: string) => {
-    if (!state.newsletterSettings?.enabled) return;
-    
     const response: import('./types').NewsletterResponse = {
       id: Math.random().toString(36).substr(2, 9),
       email,
@@ -1334,25 +1355,70 @@ const App: React.FC = () => {
       sourcePage: window.location.hash || '/'
     };
 
-    // If we have an admin user, we use their workspace. 
-    // For public submissions, we need a way to know which workspace to save to.
-    // Usually, the public page is tied to a specific admin's workspace.
-    // In this app, we'll assume the first admin or the one whose pages are being viewed.
-    // Since this is a single-tenant-like structure for the public view:
-    const adminUid = 'admin'; // Fallback or logic to find the right admin
-    
     if (state.storageMode === 'firebase') {
-      // Find the admin UID from the pages if possible, or use a default
-      // For now, we'll use the currentUser if logged in, or a default admin
-      const targetUid = currentUser?.id || 'admin'; 
-      await updateStateAndFirestore('newsletterResponses', response.id, response, false, p => ({
-        ...p,
-        newsletterResponses: [response, ...(p.newsletterResponses || [])]
-      }));
+      let targetUid = currentUser?.id;
+      if (!targetUid) {
+        const publicConfig = await getDoc(doc(db, 'public', 'config'));
+        targetUid = publicConfig.data()?.ownerId;
+      }
+      
+      if (targetUid) {
+        await setDoc(doc(db, `users/${targetUid}/newsletterResponses`, response.id), response);
+      }
     } else {
       setState(p => ({
         ...p,
         newsletterResponses: [response, ...(p.newsletterResponses || [])]
+      }));
+    }
+  };
+
+  const handleContactSubmit = async (formId: string, formTitle: string, data: any) => {
+    const response: import('./types').ContactResponse = {
+      id: Math.random().toString(36).substr(2, 9),
+      formId,
+      formTitle,
+      data,
+      timestamp: new Date().toISOString(),
+      sourcePage: window.location.hash || '/'
+    };
+
+    if (state.storageMode === 'firebase') {
+      let targetUid = currentUser?.id;
+      if (!targetUid) {
+        const publicConfig = await getDoc(doc(db, 'public', 'config'));
+        targetUid = publicConfig.data()?.ownerId;
+      }
+      
+      if (targetUid) {
+        await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), response);
+      }
+    } else {
+      setState(p => ({
+        ...p,
+        contactResponses: [response, ...(p.contactResponses || [])]
+      }));
+    }
+  };
+
+  const handleDeleteNewsletterResponse = async (id: string) => {
+    if (state.storageMode === 'firebase' && currentUser) {
+      await deleteDoc(doc(db, `users/${currentUser.id}/newsletterResponses`, id));
+    } else {
+      setState(p => ({
+        ...p,
+        newsletterResponses: p.newsletterResponses?.filter(r => r.id !== id)
+      }));
+    }
+  };
+
+  const handleDeleteContactResponse = async (id: string) => {
+    if (state.storageMode === 'firebase' && currentUser) {
+      await deleteDoc(doc(db, `users/${currentUser.id}/contactResponses`, id));
+    } else {
+      setState(p => ({
+        ...p,
+        contactResponses: p.contactResponses?.filter(r => r.id !== id)
       }));
     }
   };
@@ -1756,7 +1822,11 @@ const App: React.FC = () => {
           showLanding ? (
             state.cmsPages && state.cmsPages.length > 0 && state.cmsMenu ? (
               <PublicPage 
-                page={state.cmsPages.find(p => p.slug === window.location.hash.replace('#', '') || (window.location.hash === '' && p.slug === '/')) || state.cmsPages[0]} 
+                page={state.cmsPages.find(p => {
+                  const normalizedHash = currentHash.replace(/^#\/?/, '');
+                  const normalizedSlug = p.slug.replace(/^\//, '');
+                  return normalizedSlug === normalizedHash || (currentHash === '' && p.slug === '/');
+                }) || state.cmsPages[0]} 
                 pages={state.cmsPages}
                 menuConfig={state.cmsMenu}
                 darkMode={state.darkMode}
@@ -1765,6 +1835,7 @@ const App: React.FC = () => {
                 onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
                 onSignIn={() => setShowLanding(false)}
                 onNewsletterSubmit={handleNewsletterSubmit}
+                onContactSubmit={handleContactSubmit}
               />
             ) : (
               <HomePage 
@@ -1833,12 +1904,14 @@ const App: React.FC = () => {
                 mediaImages={state.mediaImages || []} 
                 newsletterSettings={state.newsletterSettings}
                 newsletterResponses={state.newsletterResponses || []}
+                contactResponses={state.contactResponses || []}
                 onSavePages={(pages) => updateStateAndFirestore('cms', 'pages', pages, false, p => ({...p, cmsPages: pages}))} 
                 onSaveMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}))} 
                 onSaveAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}))} 
                 onSaveSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}))} 
                 onSaveNewsletterSettings={(settings) => updateStateAndFirestore('settings', 'newsletter', settings, false, p => ({...p, newsletterSettings: settings}))}
-                onDeleteNewsletterResponse={(id) => updateStateAndFirestore('newsletterResponses', id, null, true, p => ({...p, newsletterResponses: (p.newsletterResponses || []).filter(r => r.id !== id)}))}
+                onDeleteNewsletterResponse={handleDeleteNewsletterResponse}
+                onDeleteContactResponse={handleDeleteContactResponse}
                 onChangeMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}), true)}
                 onChangeAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}), true)}
                 onChangeSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}), true)}

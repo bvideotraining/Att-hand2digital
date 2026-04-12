@@ -13,9 +13,10 @@ interface PublicPageProps {
   onThemeToggle: () => void;
   onSignIn: () => void;
   onNewsletterSubmit?: (email: string) => Promise<void>;
+  onContactSubmit?: (formId: string, formTitle: string, data: any) => Promise<void>;
 }
 
-const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, language, onLanguageToggle, onThemeToggle, onSignIn, onNewsletterSubmit }) => {
+const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMenuConfig, darkMode, language, onLanguageToggle, onThemeToggle, onSignIn, onNewsletterSubmit, onContactSubmit }) => {
   const menuConfig = React.useMemo(() => ({
     backgroundStyle: 'solid' as const,
     backgroundColor: '#ffffff',
@@ -119,7 +120,7 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
                 className={`font-bold transition-all relative group py-2`}
                 style={{ color: page.id === p.id ? menuConfig.hoverColor : menuConfig.textColor }}
               >
-                {p.title}
+                {language === 'ar' && p.titleAr ? p.titleAr : p.title}
                 <span 
                   className="absolute bottom-0 left-0 w-0 h-0.5 transition-all group-hover:w-full"
                   style={{ backgroundColor: menuConfig.hoverColor }}
@@ -183,7 +184,13 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
       <main>
         {page.blocks.map(block => (
           <div key={block.id} style={{ width: block.width ? `${block.width}%` : '100%', margin: '0 auto' }}>
-            <BlockRenderer block={block} darkMode={darkMode} onNewsletterSubmit={onNewsletterSubmit} />
+            <BlockRenderer 
+              block={block} 
+              darkMode={darkMode} 
+              language={language}
+              onNewsletterSubmit={onNewsletterSubmit} 
+              onContactSubmit={onContactSubmit}
+            />
           </div>
         ))}
       </main>
@@ -191,10 +198,19 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
   );
 };
 
-const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletterSubmit?: (email: string) => Promise<void> }> = ({ block, darkMode, onNewsletterSubmit }) => {
+const BlockRenderer: React.FC<{ 
+  block: CmsBlock, 
+  darkMode: boolean, 
+  language: string,
+  onNewsletterSubmit?: (email: string) => Promise<void>,
+  onContactSubmit?: (formId: string, formTitle: string, data: any) => Promise<void> 
+}> = ({ block, darkMode, language, onNewsletterSubmit, onContactSubmit }) => {
   const [email, setEmail] = useState('');
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const isAr = language === 'ar';
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +221,6 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
       if (onNewsletterSubmit) {
         await onNewsletterSubmit(email);
       } else {
-        // Fallback simulation
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       setIsSubmitting(false);
@@ -219,15 +234,25 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
     }
   };
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      if (onContactSubmit) {
+        await onContactSubmit(block.id, (block as FormBlock).title, formData);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       setIsSubmitting(false);
       setIsSuccess(true);
+      setFormData({});
       setTimeout(() => setIsSuccess(false), 3000);
-    }, 1000);
+    } catch (error) {
+      console.error("Contact form submission failed", error);
+      setIsSubmitting(false);
+      alert("Submission failed. Please try again.");
+    }
   };
 
   switch (block.type) {
@@ -260,13 +285,13 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                 justifyContent: isSplit ? 'flex-start' : 'center'
               }}
             >
-              <span>{b.title}</span>
-              {b.showSecondTitle && b.secondTitle && (
+              <span>{isAr && b.titleAr ? b.titleAr : b.title}</span>
+              {b.showSecondTitle && (b.secondTitle || b.secondTitleAr) && (
                 <span style={{ 
                   fontFamily: getFontFamily(b.secondTitleFont),
                   color: b.secondTitleColor || '#3b82f6'
                 }}>
-                  {b.secondTitle}
+                  {isAr && b.secondTitleAr ? b.secondTitleAr : b.secondTitle}
                 </span>
               )}
             </motion.h1>
@@ -281,7 +306,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                 marginRight: isSplit ? '0' : 'auto'
               }}
             >
-              {b.subtitle}
+              {isAr && b.subtitleAr ? b.subtitleAr : b.subtitle}
             </motion.p>
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -298,10 +323,10 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                   boxShadow: `0 20px 25px -5px ${b.buttonBgColor || '#2563eb'}40`
                 }}
               >
-                {b.buttonText}
-                <ArrowRight className="w-5 h-5" />
+                {isAr && b.buttonTextAr ? b.buttonTextAr : b.buttonText}
+                <ArrowRight className={`w-5 h-5 ${isAr ? 'rotate-180' : ''}`} />
               </a>
-              {b.showSecondButton && b.secondButtonText && (
+              {b.showSecondButton && (b.secondButtonText || b.secondButtonTextAr) && (
                 <a 
                   href={b.secondButtonLink}
                   className="inline-flex px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl items-center justify-center gap-2 hover:scale-105 active:scale-95"
@@ -311,7 +336,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                     boxShadow: darkMode ? 'none' : '0 10px 15px -3px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {b.secondButtonText}
+                  {isAr && b.secondButtonTextAr ? b.secondButtonTextAr : b.secondButtonText}
                 </a>
               )}
             </motion.div>
@@ -367,7 +392,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
       const b = block as RichTextBlock;
       return (
         <section className="py-16 px-4">
-          <div className="max-w-4xl mx-auto prose dark:prose-invert" dangerouslySetInnerHTML={{ __html: b.content }} />
+          <div className="max-w-4xl mx-auto prose dark:prose-invert" dangerouslySetInnerHTML={{ __html: isAr && b.contentAr ? b.contentAr : b.content }} />
         </section>
       );
     }
@@ -379,7 +404,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
       return (
         <section className={`py-24 px-4 ${darkMode ? 'bg-gray-900/50' : 'bg-white'}`}>
           <div className="max-w-7xl mx-auto">
-            {b.heading && <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">{b.heading}</h2>}
+            {(b.heading || b.headingAr) && <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">{isAr && b.headingAr ? b.headingAr : b.heading}</h2>}
             <div className={`grid gap-8 ${isList ? 'grid-cols-1 max-w-4xl mx-auto' : `grid-cols-1 ${gridCols}`}`}>
               {b.cards.map((card, i) => {
                 const IconMap: any = { Zap, ShieldCheck, Download, Cpu, Users, Upload, FileText, Globe, Moon, Sun, Mail, MessageSquare, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, Settings, Trash2, Edit, Save, Plus, X, ArrowRight, Home, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Copy, ExternalLink, Eye, GripVertical, ChevronDown, ChevronUp, Key, Code, RefreshCw, Link: LinkIcon };
@@ -399,8 +424,8 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                           <IconComponent className="w-8 h-8" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-2xl font-bold mb-2">{card.title}</h3>
-                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">{card.description}</p>
+                          <h3 className="text-2xl font-bold mb-2">{isAr && card.titleAr ? card.titleAr : card.title}</h3>
+                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">{isAr && card.descriptionAr ? card.descriptionAr : card.description}</p>
                         </div>
                       </div>
                     ) : (
@@ -408,8 +433,8 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                         <div className="bg-blue-50 dark:bg-blue-900/20 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
                           <IconComponent className="w-7 h-7" />
                         </div>
-                        <h3 className="text-xl font-bold mb-3">{card.title}</h3>
-                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{card.description}</p>
+                        <h3 className="text-xl font-bold mb-3">{isAr && card.titleAr ? card.titleAr : card.title}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{isAr && card.descriptionAr ? card.descriptionAr : card.description}</p>
                       </>
                     )}
                   </motion.div>
@@ -426,19 +451,31 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
         <section className="py-24 px-4" style={{ backgroundColor: b.backgroundColor }}>
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">{b.title}</h2>
-              <p className="text-gray-500 dark:text-gray-400">{b.subtitle}</p>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">{isAr && b.titleAr ? b.titleAr : b.title}</h2>
+              <p className="text-gray-500 dark:text-gray-400">{isAr && b.subtitleAr ? b.subtitleAr : b.subtitle}</p>
             </div>
             <form onSubmit={handleContactSubmit} className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-xl space-y-6`}>
               {b.fields && b.fields.length > 0 ? (
                 <div className="space-y-6">
                   {b.fields.map(field => (
                     <div key={field.id}>
-                      <label className="block text-sm font-medium mb-2">{field.label} {field.required && <span className="text-red-500">*</span>}</label>
+                      <label className="block text-sm font-medium mb-2">{isAr && field.labelAr ? field.labelAr : field.label} {field.required && <span className="text-red-500">*</span>}</label>
                       {field.type === 'textarea' ? (
-                        <textarea required={field.required} rows={4} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}></textarea>
+                        <textarea 
+                          required={field.required} 
+                          rows={4} 
+                          value={formData[field.id] || ''}
+                          onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
+                          className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                        ></textarea>
                       ) : (
-                        <input type={field.type} required={field.required} className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} />
+                        <input 
+                          type={field.type} 
+                          required={field.required} 
+                          value={formData[field.id] || ''}
+                          onChange={e => setFormData(p => ({ ...p, [field.id]: e.target.value }))}
+                          className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
+                        />
                       )}
                     </div>
                   ))}
@@ -447,21 +484,45 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Full Name</label>
-                      <input type="text" required className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} />
+                      <label className="block text-sm font-medium mb-2">{isAr ? 'الاسم الكامل' : 'Full Name'}</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={formData.fullName || ''}
+                        onChange={e => setFormData(p => ({ ...p, fullName: e.target.value }))}
+                        className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-2">Email Address</label>
-                      <input type="email" required className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} />
+                      <label className="block text-sm font-medium mb-2">{isAr ? 'البريد الإلكتروني' : 'Email Address'}</label>
+                      <input 
+                        type="email" 
+                        required 
+                        value={formData.email || ''}
+                        onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                        className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
+                      />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Subject</label>
-                    <input type="text" required className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} />
+                    <label className="block text-sm font-medium mb-2">{isAr ? 'الموضوع' : 'Subject'}</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={formData.subject || ''}
+                      onChange={e => setFormData(p => ({ ...p, subject: e.target.value }))}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`} 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Message</label>
-                    <textarea rows={4} required className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}></textarea>
+                    <label className="block text-sm font-medium mb-2">{isAr ? 'الرسالة' : 'Message'}</label>
+                    <textarea 
+                      rows={4} 
+                      required 
+                      value={formData.message || ''}
+                      onChange={e => setFormData(p => ({ ...p, message: e.target.value }))}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                    ></textarea>
                   </div>
                 </>
               )}
@@ -471,7 +532,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                 className="w-full py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center gap-2"
                 style={{ backgroundColor: b.submitBgColor, color: b.submitTextColor, opacity: isSubmitting ? 0.7 : 1 }}
               >
-                {isSubmitting ? 'Sending...' : isSuccess ? 'Sent Successfully!' : b.submitText}
+                {isSubmitting ? (isAr ? 'جاري الإرسال...' : 'Sending...') : isSuccess ? (isAr ? 'تم الإرسال بنجاح!' : 'Sent Successfully!') : (isAr && b.submitTextAr ? b.submitTextAr : b.submitText)}
               </button>
             </form>
           </div>
@@ -483,15 +544,15 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
       return (
         <section className="py-24 px-4" style={{ backgroundColor: b.backgroundColor, color: b.textColor }}>
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-6">{b.title}</h2>
-            <p className="text-lg md:text-xl opacity-80 mb-10 max-w-2xl mx-auto leading-relaxed">{b.subtitle}</p>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-6">{isAr && b.titleAr ? b.titleAr : b.title}</h2>
+            <p className="text-lg md:text-xl opacity-80 mb-10 max-w-2xl mx-auto leading-relaxed">{isAr && b.subtitleAr ? b.subtitleAr : b.subtitle}</p>
             <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
               <input 
                 type="email" 
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder={b.placeholderText} 
+                placeholder={isAr && b.placeholderTextAr ? b.placeholderTextAr : b.placeholderText} 
                 className={`flex-1 px-6 py-4 rounded-2xl border-2 outline-none focus:border-blue-500 transition text-gray-900 ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-transparent shadow-sm'}`} 
               />
               <button 
@@ -500,7 +561,7 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl shadow-blue-500/20 whitespace-nowrap"
                 style={{ opacity: isSubmitting ? 0.7 : 1 }}
               >
-                {isSubmitting ? 'Subscribing...' : isSuccess ? 'Subscribed!' : b.buttonText}
+                {isSubmitting ? (isAr ? 'جاري الاشتراك...' : 'Subscribing...') : isSuccess ? (isAr ? 'تم الاشتراك!' : 'Subscribed!') : (isAr && b.buttonTextAr ? b.buttonTextAr : b.buttonText)}
               </button>
             </form>
           </div>
@@ -509,12 +570,59 @@ const BlockRenderer: React.FC<{ block: CmsBlock, darkMode: boolean, onNewsletter
     }
     case 'footer': {
       const b = block as FooterBlock;
+      const isColumns = b.template === 'columns';
+      const isCentered = b.template === 'centered';
+      
       return (
-        <footer className={`py-12 border-t ${darkMode ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <h3 className="text-xl font-bold mb-2">{b.companyName}</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">{b.description}</p>
-            <p className="text-sm text-gray-400">{b.copyright}</p>
+        <footer className={`py-16 border-t ${darkMode ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-100'}`}>
+          <div className="max-w-7xl mx-auto px-4">
+            {isColumns ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+                <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <h3 className="text-xl font-bold mb-4">{isAr && b.companyNameAr ? b.companyNameAr : b.companyName}</h3>
+                  <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
+                    {isAr && b.descriptionAr ? b.descriptionAr : b.description}
+                  </p>
+                </div>
+                {b.columns && b.columns.map(col => (
+                  <div key={col.id}>
+                    <h4 className="font-bold mb-6 uppercase text-sm tracking-widest text-gray-400">
+                      {isAr && col.titleAr ? col.titleAr : col.title}
+                    </h4>
+                    <ul className="space-y-4">
+                      {col.links.map(link => (
+                        <li key={link.id}>
+                          <a 
+                            href={link.url} 
+                            className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          >
+                            {isAr && link.labelAr ? link.labelAr : link.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={`mb-12 ${isCentered ? 'text-center' : 'text-left'}`}>
+                <h3 className="text-2xl font-bold mb-4">{isAr && b.companyNameAr ? b.companyNameAr : b.companyName}</h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                  {isAr && b.descriptionAr ? b.descriptionAr : b.description}
+                </p>
+              </div>
+            )}
+            
+            <div className={`pt-8 border-t border-gray-100 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 ${isCentered ? 'text-center' : ''}`}>
+              <p className="text-sm text-gray-400">
+                {isAr && b.copyrightAr ? b.copyrightAr : b.copyright}
+              </p>
+              {!isCentered && (
+                <div className="flex gap-6">
+                  {/* Optional social links could go here if added to footer block */}
+                </div>
+              )}
+            </div>
           </div>
         </footer>
       );

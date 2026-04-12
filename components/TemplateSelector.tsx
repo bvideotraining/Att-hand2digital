@@ -26,24 +26,28 @@ export const PAGE_TEMPLATES = [
         type: 'hero', 
         template: 'centered', 
         title: 'Modern HR Management for Your Organization', 
+        titleAr: 'إدارة الموارد البشرية الحديثة لمؤسستك',
         titleColor: '#111827',
         titleFont: 'Outfit',
         showSecondTitle: true,
         secondTitle: 'Simplified.',
+        secondTitleAr: 'بكل بساطة.',
         secondTitleColor: '#2563eb',
         secondTitleFont: 'Outfit',
         subtitle: 'Streamline your workforce, payroll, and attendance with our unified platform.', 
+        subtitleAr: 'بسط إدارة القوى العاملة والرواتب والحضور من خلال منصتنا الموحدة.',
         buttonText: 'Get Started', 
+        buttonTextAr: 'ابدأ الآن',
         buttonLink: '/register',
         buttonBgColor: '#2563eb',
         buttonTextColor: '#ffffff'
       },
-      { id: 'c1', type: 'cards', heading: 'Core Features', columns: 3, cards: [
-        { id: 'f1', icon: 'Zap', title: 'Fast Processing', description: 'Process attendance and payroll in seconds.' },
-        { id: 'f2', icon: 'ShieldCheck', title: 'Secure Data', description: 'Enterprise-grade security for your sensitive HR data.' },
-        { id: 'f3', icon: 'Users', title: 'Employee Portal', description: 'Self-service portal for employees to manage their profiles.' }
+      { id: 'c1', type: 'cards', heading: 'Core Features', headingAr: 'الميزات الأساسية', columns: 3, cards: [
+        { id: 'f1', icon: 'Zap', title: 'Fast Processing', titleAr: 'معالجة سريعة', description: 'Process attendance and payroll in seconds.', descriptionAr: 'معالجة الحضور والرواتب في ثوانٍ.' },
+        { id: 'f2', icon: 'ShieldCheck', title: 'Secure Data', titleAr: 'بيانات آمنة', description: 'Enterprise-grade security for your sensitive HR data.', descriptionAr: 'أمان على مستوى المؤسسات لبيانات الموارد البشرية الحساسة.' },
+        { id: 'f3', icon: 'Users', title: 'Employee Portal', titleAr: 'بوابة الموظفين', description: 'Self-service portal for employees to manage their profiles.', descriptionAr: 'بوابة خدمة ذاتية للموظفين لإدارة ملفاتهم الشخصية.' }
       ]},
-      { id: 'n1', type: 'newsletter', title: 'Stay Updated', subtitle: 'Subscribe to our newsletter for the latest HR trends.', placeholderText: 'Enter your email', buttonText: 'Subscribe', backgroundColor: '#f3f4f6', textColor: '#111827' }
+      { id: 'n1', type: 'newsletter', title: 'Stay Updated', titleAr: 'ابق على اطلاع', subtitle: 'Subscribe to our newsletter for the latest HR trends.', subtitleAr: 'اشترك في نشرتنا الإخبارية للحصول على أحدث اتجاهات الموارد البشرية.', placeholderText: 'Enter your email', placeholderTextAr: 'أدخل بريدك الإلكتروني', buttonText: 'Subscribe', buttonTextAr: 'اشتراك', backgroundColor: '#f3f4f6', textColor: '#111827' }
     ] as CmsBlock[]
   },
   {
@@ -60,28 +64,33 @@ export const PAGE_TEMPLATES = [
         type: 'hero', 
         template: 'split', 
         title: 'Powerful Features', 
+        titleAr: 'ميزات قوية',
         titleColor: '#111827',
         titleFont: 'Outfit',
         showSecondTitle: true,
         secondTitle: 'for Modern HR',
+        secondTitleAr: 'للموارد البشرية الحديثة',
         secondTitleColor: '#2563eb',
         secondTitleFont: 'Outfit',
         subtitle: 'Discover how our platform can transform your organization with AI-powered tools and real-time analytics.', 
+        subtitleAr: 'اكتشف كيف يمكن لمنصتنا تحويل مؤسستك باستخدام أدوات مدعومة بالذكاء الاصطناعي وتحليلات في الوقت الفعلي.',
         buttonText: 'Explore Features', 
+        buttonTextAr: 'استكشف الميزات',
         buttonLink: '#features',
         buttonBgColor: '#2563eb',
         buttonTextColor: '#ffffff',
         showSecondButton: true,
         secondButtonText: 'Watch Demo',
+        secondButtonTextAr: 'شاهد العرض',
         secondButtonLink: '#demo',
         secondButtonBgColor: '#f3f4f6',
         secondButtonTextColor: '#111827',
         backgroundImage: 'https://picsum.photos/seed/hr-dashboard/800/600'
       },
-      { id: 'c2', type: 'cards', heading: 'Key Capabilities', columns: 3, cards: [
-        { id: 'feat1', icon: 'Cpu', title: 'AI Extraction', description: 'Extract data from handwritten sheets using advanced AI.' },
-        { id: 'feat2', icon: 'Layout', title: 'Custom Dashboards', description: 'Visualize your HR data with customizable widgets.' },
-        { id: 'feat3', icon: 'Users', title: 'Role Management', description: 'Granular access control for different user roles.' }
+      { id: 'c2', type: 'cards', heading: 'Key Capabilities', headingAr: 'القدرات الرئيسية', columns: 3, cards: [
+        { id: 'feat1', icon: 'Cpu', title: 'AI Extraction', titleAr: 'استخراج بالذكاء الاصطناعي', description: 'Extract data from handwritten sheets using advanced AI.', descriptionAr: 'استخراج البيانات من الكشوف المكتوبة بخط اليد باستخدام الذكاء الاصطناعي.' },
+        { id: 'feat2', icon: 'Layout', title: 'Custom Dashboards', titleAr: 'لوحات تحكم مخصصة', description: 'Visualize your HR data with customizable widgets.', descriptionAr: 'تصور بيانات الموارد البشرية الخاصة بك باستخدام أدوات قابلة للتخصيص.' },
+        { id: 'feat3', icon: 'Users', title: 'Role Management', titleAr: 'إدارة الصلاحيات', description: 'Granular access control for different user roles.', descriptionAr: 'تحكم دقيق في الوصول لأدوار المستخدمين المختلفة.' }
       ]}
     ] as CmsBlock[]
   },
@@ -94,11 +103,11 @@ export const PAGE_TEMPLATES = [
     icon: ShieldCheck,
     thumbnail: 'https://picsum.photos/seed/hr-benefits/400/300',
     blocks: [
-      { id: 'h3', type: 'hero', template: 'gradient', title: 'Why Organizations Trust Us', subtitle: 'Experience the benefits of a modern HR infrastructure.', buttonText: 'Learn More', buttonLink: '#benefits' },
-      { id: 'c3', type: 'cards', heading: 'Business Benefits', columns: 3, cards: [
-        { id: 'b1', icon: 'ShieldCheck', title: 'Compliance', description: 'Stay compliant with local labor laws automatically.' },
-        { id: 'b2', icon: 'Zap', title: 'Efficiency', description: 'Reduce administrative overhead by up to 40%.' },
-        { id: 'b3', icon: 'Users', title: 'Retention', description: 'Improve employee satisfaction with transparent processes.' }
+      { id: 'h3', type: 'hero', template: 'gradient', title: 'Why Organizations Trust Us', titleAr: 'لماذا تثق بنا المؤسسات', subtitle: 'Experience the benefits of a modern HR infrastructure.', subtitleAr: 'جرب فوائد بنية الموارد البشرية الحديثة.', buttonText: 'Learn More', buttonTextAr: 'اعرف المزيد', buttonLink: '#benefits' },
+      { id: 'c3', type: 'cards', heading: 'Business Benefits', headingAr: 'فوائد الأعمال', columns: 3, cards: [
+        { id: 'b1', icon: 'ShieldCheck', title: 'Compliance', titleAr: 'الامتثال', description: 'Stay compliant with local labor laws automatically.', descriptionAr: 'ابق ممتثلاً لقوانين العمل المحلية تلقائياً.' },
+        { id: 'b2', icon: 'Zap', title: 'Efficiency', titleAr: 'الكفاءة', description: 'Reduce administrative overhead by up to 40%.', descriptionAr: 'قلل الأعباء الإدارية بنسبة تصل إلى 40٪.' },
+        { id: 'b3', icon: 'Users', title: 'Retention', titleAr: 'الاحتفاظ بالموظفين', description: 'Improve employee satisfaction with transparent processes.', descriptionAr: 'تحسين رضا الموظفين من خلال عمليات شفافة.' }
       ]}
     ] as CmsBlock[]
   },
@@ -111,12 +120,12 @@ export const PAGE_TEMPLATES = [
     icon: Cpu,
     thumbnail: 'https://picsum.photos/seed/hr-modules/400/300',
     blocks: [
-      { id: 'h4', type: 'hero', template: 'centered', title: 'Modular HR Excellence', subtitle: 'Choose the modules that fit your organization\'s needs.', buttonText: 'View Modules', buttonLink: '#modules' },
-      { id: 'c4', type: 'cards', heading: 'System Modules', columns: 4, cards: [
-        { id: 'm1', icon: 'Users', title: 'Core HR', description: 'Employee database and records.' },
-        { id: 'm2', icon: 'CreditCard', title: 'Payroll', description: 'Automated salary calculations.' },
-        { id: 'm3', icon: 'Layout', title: 'Attendance', description: 'Time tracking and leave management.' },
-        { id: 'm4', icon: 'Cpu', title: 'Analytics', description: 'Advanced reporting and insights.' }
+      { id: 'h4', type: 'hero', template: 'centered', title: 'Modular HR Excellence', titleAr: 'تميز الموارد البشرية المعياري', subtitle: 'Choose the modules that fit your organization\'s needs.', subtitleAr: 'اختر الوحدات التي تناسب احتياجات مؤسستك.', buttonText: 'View Modules', buttonTextAr: 'عرض الوحدات', buttonLink: '#modules' },
+      { id: 'c4', type: 'cards', heading: 'System Modules', headingAr: 'وحدات النظام', columns: 4, cards: [
+        { id: 'm1', icon: 'Users', title: 'Core HR', titleAr: 'الموارد البشرية الأساسية', description: 'Employee database and records.', descriptionAr: 'قاعدة بيانات وسجلات الموظفين.' },
+        { id: 'm2', icon: 'CreditCard', title: 'Payroll', titleAr: 'الرواتب', description: 'Automated salary calculations.', descriptionAr: 'حسابات الرواتب الآلية.' },
+        { id: 'm3', icon: 'Layout', title: 'Attendance', titleAr: 'الحضور', description: 'Time tracking and leave management.', descriptionAr: 'تتبع الوقت وإدارة الإجازات.' },
+        { id: 'm4', icon: 'Cpu', title: 'Analytics', titleAr: 'التحليلات', description: 'Advanced reporting and insights.', descriptionAr: 'تقارير ورؤى متقدمة.' }
       ]}
     ] as CmsBlock[]
   },
@@ -129,11 +138,11 @@ export const PAGE_TEMPLATES = [
     icon: CreditCard,
     thumbnail: 'https://picsum.photos/seed/hr-products/400/300',
     blocks: [
-      { id: 'h5', type: 'hero', template: 'imageBg', title: 'Our Solutions', subtitle: 'Tailored products for organizations of all sizes.', buttonText: 'View Pricing', buttonLink: '#pricing' },
-      { id: 'c5', type: 'cards', heading: 'Product Plans', columns: 3, cards: [
-        { id: 'p1', icon: 'Zap', title: 'Starter', description: 'For small teams up to 20 employees.' },
-        { id: 'p2', icon: 'ShieldCheck', title: 'Professional', description: 'For growing organizations up to 200 employees.' },
-        { id: 'p3', icon: 'Cpu', title: 'Enterprise', description: 'Custom solutions for large organizations.' }
+      { id: 'h5', type: 'hero', template: 'imageBg', title: 'Our Solutions', titleAr: 'حلولنا', subtitle: 'Tailored products for organizations of all sizes.', subtitleAr: 'منتجات مصممة خصيصاً للمؤسسات من جميع الأحجام.', buttonText: 'View Pricing', buttonTextAr: 'عرض الأسعار', buttonLink: '#pricing' },
+      { id: 'c5', type: 'cards', heading: 'Product Plans', headingAr: 'خطط المنتجات', columns: 3, cards: [
+        { id: 'p1', icon: 'Zap', title: 'Starter', titleAr: 'البداية', description: 'For small teams up to 20 employees.', descriptionAr: 'للفرق الصغيرة حتى 20 موظفاً.' },
+        { id: 'p2', icon: 'ShieldCheck', title: 'Professional', titleAr: 'الاحترافية', description: 'For growing organizations up to 200 employees.', descriptionAr: 'للمؤسسات النامية حتى 200 موظف.' },
+        { id: 'p3', icon: 'Cpu', title: 'Enterprise', titleAr: 'الشركات', description: 'Custom solutions for large organizations.', descriptionAr: 'حلول مخصصة للمؤسسات الكبيرة.' }
       ]}
     ] as CmsBlock[]
   },
@@ -146,8 +155,8 @@ export const PAGE_TEMPLATES = [
     icon: Users,
     thumbnail: 'https://picsum.photos/seed/hr-about/400/300',
     blocks: [
-      { id: 'h6', type: 'hero', template: 'split', title: 'Our Mission', subtitle: 'We are dedicated to modernizing HR for everyone.', buttonText: 'Our Story', buttonLink: '#story' },
-      { id: 'r1', type: 'richText', content: '<h2>Our History</h2><p>Founded in 2024, we saw a gap in the market for localized HR solutions...</p>' }
+      { id: 'h6', type: 'hero', template: 'split', title: 'Our Mission', titleAr: 'مهمتنا', subtitle: 'We are dedicated to modernizing HR for everyone.', subtitleAr: 'نحن مكرسون لتحديث الموارد البشرية للجميع.', buttonText: 'Our Story', buttonTextAr: 'قصتنا', buttonLink: '#story' },
+      { id: 'r1', type: 'richText', content: '<h2>Our History</h2><p>Founded in 2024, we saw a gap in the market for localized HR solutions...</p>', contentAr: '<h2>تاريخنا</h2><p>تأسسنا في عام 2024، ورأينا فجوة في السوق لحلول الموارد البشرية المحلية...</p>' }
     ] as CmsBlock[]
   },
   {
@@ -159,21 +168,24 @@ export const PAGE_TEMPLATES = [
     icon: Mail,
     thumbnail: 'https://picsum.photos/seed/hr-contact/400/300',
     blocks: [
-      { id: 'h7', type: 'hero', template: 'centered', title: 'Get in Touch', subtitle: 'We\'d love to hear from you. Send us a message below.', buttonText: 'Contact Form', buttonLink: '#contact' },
+      { id: 'h7', type: 'hero', template: 'centered', title: 'Get in Touch', titleAr: 'تواصل معنا', subtitle: 'We\'d love to hear from you. Send us a message below.', subtitleAr: 'نود أن نسمع منك. أرسل لنا رسالة أدناه.', buttonText: 'Contact Form', buttonTextAr: 'نموذج الاتصال', buttonLink: '#contact' },
       { 
         id: 'f1', 
         type: 'contactForm', 
         title: 'Send a Message', 
+        titleAr: 'أرسل رسالة',
         subtitle: 'Fill out the form and we\'ll get back to you shortly.',
+        subtitleAr: 'املأ النموذج وسنرد عليك قريباً.',
         fields: [
-          { id: 'name', type: 'text', label: 'Full Name', required: true },
-          { id: 'email', type: 'email', label: 'Email Address', required: true },
-          { id: 'msg', type: 'textarea', label: 'Message', required: true }
+          { id: 'name', type: 'text', label: 'Full Name', labelAr: 'الاسم الكامل', required: true },
+          { id: 'email', type: 'email', label: 'Email Address', labelAr: 'البريد الإلكتروني', required: true },
+          { id: 'msg', type: 'textarea', label: 'Message', labelAr: 'الرسالة', required: true }
         ],
         formWidth: 'medium',
         sectionPadding: 'medium',
         backgroundColor: '#ffffff',
         submitText: 'Send Message',
+        submitTextAr: 'إرسال الرسالة',
         submitBgColor: '#2563eb',
         submitTextColor: '#ffffff',
         destination: 'firestore',
@@ -190,8 +202,8 @@ export const PAGE_TEMPLATES = [
     icon: FileText,
     thumbnail: 'https://picsum.photos/seed/hr-blog/400/300',
     blocks: [
-      { id: 'h8', type: 'hero', template: 'gradient', title: 'Our Blog', subtitle: 'Latest news, trends, and insights from the world of HR.', buttonText: 'Read Latest', buttonLink: '#latest' },
-      { id: 'r2', type: 'richText', content: '<h3>Latest Articles</h3><p>Coming soon...</p>' }
+      { id: 'h8', type: 'hero', template: 'gradient', title: 'Our Blog', titleAr: 'مدونتنا', subtitle: 'Latest news, trends, and insights from the world of HR.', subtitleAr: 'أحدث الأخبار والاتجاهات والرؤى من عالم الموارد البشرية.', buttonText: 'Read Latest', buttonTextAr: 'اقرأ الأحدث', buttonLink: '#latest' },
+      { id: 'r2', type: 'richText', content: '<h3>Latest Articles</h3><p>Coming soon...</p>', contentAr: '<h3>أحدث المقالات</h3><p>قريباً...</p>' }
     ] as CmsBlock[]
   },
   {
@@ -203,8 +215,8 @@ export const PAGE_TEMPLATES = [
     icon: PanelBottom,
     thumbnail: 'https://picsum.photos/seed/hr-newsletter/400/300',
     blocks: [
-      { id: 'h9', type: 'hero', template: 'centered', title: 'Join Our Newsletter', subtitle: 'Get the best HR tips delivered to your inbox weekly.', buttonText: 'Subscribe Now', buttonLink: '#subscribe' },
-      { id: 'n2', type: 'newsletter', title: 'Subscribe', subtitle: 'No spam, just value.', placeholderText: 'your@email.com', buttonText: 'Join Now', backgroundColor: '#ffffff', textColor: '#111827' }
+      { id: 'h9', type: 'hero', template: 'centered', title: 'Join Our Newsletter', titleAr: 'انضم إلى نشرتنا البريدية', subtitle: 'Get the best HR tips delivered to your inbox weekly.', subtitleAr: 'احصل على أفضل نصائح الموارد البشرية في صندوق الوارد الخاص بك أسبوعياً.', buttonText: 'Subscribe Now', buttonTextAr: 'اشترك الآن', buttonLink: '#subscribe' },
+      { id: 'n2', type: 'newsletter', title: 'Subscribe', titleAr: 'اشتراك', subtitle: 'No spam, just value.', subtitleAr: 'لا رسائل مزعجة، فقط قيمة.', placeholderText: 'your@email.com', placeholderTextAr: 'بريدك الإلكتروني', buttonText: 'Join Now', buttonTextAr: 'انضم الآن', backgroundColor: '#ffffff', textColor: '#111827' }
     ] as CmsBlock[]
   }
 ];

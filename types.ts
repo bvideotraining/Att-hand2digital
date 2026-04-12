@@ -98,9 +98,13 @@ export interface BaseBlock {
 export interface NewsletterBlock extends BaseBlock {
   type: 'newsletter';
   title: string;
+  titleAr?: string;
   subtitle: string;
+  subtitleAr?: string;
   placeholderText: string;
+  placeholderTextAr?: string;
   buttonText: string;
+  buttonTextAr?: string;
   backgroundColor: string;
   textColor: string;
 }
@@ -109,20 +113,25 @@ export interface HeroBlock extends BaseBlock {
   type: 'hero';
   template: 'centered' | 'split' | 'gradient' | 'imageBg';
   title: string;
+  titleAr?: string;
   titleColor?: string;
   titleFont?: string;
   showSecondTitle?: boolean;
   secondTitle?: string;
+  secondTitleAr?: string;
   secondTitleColor?: string;
   secondTitleFont?: string;
   subtitle: string;
+  subtitleAr?: string;
   subtitleColor?: string;
   buttonText: string;
+  buttonTextAr?: string;
   buttonLink: string;
   buttonBgColor?: string;
   buttonTextColor?: string;
   showSecondButton?: boolean;
   secondButtonText?: string;
+  secondButtonTextAr?: string;
   secondButtonLink?: string;
   secondButtonBgColor?: string;
   secondButtonTextColor?: string;
@@ -133,18 +142,22 @@ export interface HeroBlock extends BaseBlock {
 export interface RichTextBlock extends BaseBlock {
   type: 'richText';
   content: string;
+  contentAr?: string;
 }
 
 export interface CardItem {
   id: string;
   icon: string;
   title: string;
+  titleAr?: string;
   description: string;
+  descriptionAr?: string;
 }
 
 export interface CardsBlock extends BaseBlock {
   type: 'cards';
   heading: string;
+  headingAr?: string;
   columns: 1 | 2 | 3 | 4;
   layout?: 'grid' | 'list';
   cards: CardItem[];
@@ -154,18 +167,22 @@ export interface FormField {
   id: string;
   type: 'text' | 'email' | 'phone' | 'select' | 'textarea';
   label: string;
+  labelAr?: string;
   required: boolean;
 }
 
 export interface FormBlock extends BaseBlock {
   type: 'contactForm';
   title: string;
+  titleAr?: string;
   subtitle: string;
+  subtitleAr?: string;
   fields: FormField[];
   formWidth: 'narrow' | 'medium' | 'wide' | 'full';
   sectionPadding: 'small' | 'medium' | 'large';
   backgroundColor: string;
   submitText: string;
+  submitTextAr?: string;
   submitBgColor: string;
   submitTextColor: string;
   destination: 'firestore' | 'webhook';
@@ -175,15 +192,19 @@ export interface FormBlock extends BaseBlock {
 export interface FooterColumn {
   id: string;
   title: string;
-  links: { id: string; label: string; url: string }[];
+  titleAr?: string;
+  links: { id: string; label: string; labelAr?: string; url: string }[];
 }
 
 export interface FooterBlock extends BaseBlock {
   type: 'footer';
   template: 'simple' | 'columns' | 'centered';
   companyName: string;
+  companyNameAr?: string;
   copyright: string;
+  copyrightAr?: string;
   description: string;
+  descriptionAr?: string;
   columns: FooterColumn[];
 }
 
@@ -192,6 +213,7 @@ export type CmsBlock = HeroBlock | RichTextBlock | CardsBlock | FormBlock | News
 export interface CmsPage {
   id: string;
   title: string;
+  titleAr?: string;
   slug: string;
   status: 'published' | 'draft';
   inMenu: boolean;
@@ -260,6 +282,15 @@ export interface NewsletterResponse {
   sourcePage?: string;
 }
 
+export interface ContactResponse {
+  id: string;
+  formId: string;
+  formTitle: string;
+  data: Record<string, any>;
+  timestamp: string;
+  sourcePage?: string;
+}
+
 export interface NewsletterSettings {
   enabled: boolean;
   collectResponses: boolean;
@@ -286,5 +317,6 @@ export interface AppState {
   appMenu?: AppMenuConfig;
   mediaImages?: {id: string, url: string, name: string}[];
   newsletterResponses?: NewsletterResponse[];
+  contactResponses?: ContactResponse[];
   newsletterSettings?: NewsletterSettings;
 }

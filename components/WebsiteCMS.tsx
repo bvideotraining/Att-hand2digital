@@ -27,8 +27,10 @@ interface WebsiteCMSProps {
   onSyncBrandingToPublic?: () => void;
   onSaveNewsletterSettings?: (settings: import('../types').NewsletterSettings) => void;
   onDeleteNewsletterResponse?: (id: string) => void;
+  onDeleteContactResponse?: (id: string) => void;
   newsletterSettings?: import('../types').NewsletterSettings;
   newsletterResponses?: import('../types').NewsletterResponse[];
+  contactResponses?: import('../types').ContactResponse[];
   isSyncing?: boolean;
   language: string;
   darkMode: boolean;
@@ -79,13 +81,115 @@ const LinkPicker = ({ value, onChange, pages, darkMode, t }: { value: string, on
   );
 };
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, newsletterSettings, newsletterResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
+const ResponsesView = ({ newsletterResponses, contactResponses, onDeleteNewsletter, onDeleteContact, darkMode, language }: { 
+  newsletterResponses: import('../types').NewsletterResponse[], 
+  contactResponses: import('../types').ContactResponse[], 
+  onDeleteNewsletter: (id: string) => void,
+  onDeleteContact: (id: string) => void,
+  darkMode: boolean,
+  language: string
+}) => {
+  const [activeSubTab, setActiveSubTab] = useState<'newsletter' | 'contact'>('newsletter');
+  const isAr = language === 'ar';
+
+  return (
+    <div className="p-8 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight">{isAr ? 'ردود المستخدمين' : 'User Responses'}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{isAr ? 'إدارة ردود النشرة الإخبارية ونماذج الاتصال' : 'Manage newsletter and contact form submissions'}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mb-8 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl w-fit">
+        <button 
+          onClick={() => setActiveSubTab('newsletter')}
+          className={`px-6 py-2 rounded-xl font-bold transition ${activeSubTab === 'newsletter' ? 'bg-white dark:bg-gray-700 shadow-md text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          {isAr ? 'النشرة الإخبارية' : 'Newsletter'} ({newsletterResponses.length})
+        </button>
+        <button 
+          onClick={() => setActiveSubTab('contact')}
+          className={`px-6 py-2 rounded-xl font-bold transition ${activeSubTab === 'contact' ? 'bg-white dark:bg-gray-700 shadow-md text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          {isAr ? 'نماذج الاتصال' : 'Contact Forms'} ({contactResponses.length})
+        </button>
+      </div>
+
+      {activeSubTab === 'newsletter' ? (
+        <div className="space-y-4">
+          {newsletterResponses.length === 0 ? (
+            <div className="text-center py-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+              <Mail className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">{isAr ? 'لا توجد ردود حتى الآن' : 'No responses yet'}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {newsletterResponses.map(res => (
+                <div key={res.id} className={`p-6 rounded-2xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm flex justify-between items-center`}>
+                  <div>
+                    <div className="font-bold text-lg">{res.email}</div>
+                    <div className="text-sm text-gray-500 flex gap-4 mt-1">
+                      <span>{new Date(res.timestamp).toLocaleString(isAr ? 'ar-EG' : 'en-US')}</span>
+                      <span>{res.sourcePage}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => onDeleteNewsletter(res.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {contactResponses.length === 0 ? (
+            <div className="text-center py-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+              <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">{isAr ? 'لا توجد ردود حتى الآن' : 'No responses yet'}</p>
+            </div>
+          ) : (
+            <div className="grid gap-6">
+              {contactResponses.map(res => (
+                <div key={res.id} className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} shadow-sm`}>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h4 className="font-bold text-xl">{res.formTitle}</h4>
+                      <div className="text-sm text-gray-500 flex gap-4 mt-1">
+                        <span>{new Date(res.timestamp).toLocaleString(isAr ? 'ar-EG' : 'en-US')}</span>
+                        <span>{res.sourcePage}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => onDeleteContact(res.id)} className="p-2 text-gray-400 hover:text-red-600 transition">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(res.data).map(([key, val]) => (
+                      <div key={key} className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
+                        <div className="text-xs font-bold text-gray-400 uppercase mb-1">{key}</div>
+                        <div className="text-gray-700 dark:text-gray-200">{String(val)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, onDeleteContactResponse, newsletterSettings, newsletterResponses, contactResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
   }, [language]);
 
-  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings' | 'newsletter'>('pages');
+  const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings' | 'newsletter' | 'responses'>('pages');
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false);
@@ -417,6 +521,16 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
               <hr className="border-gray-100 dark:border-gray-800 my-1" />
 
               <button 
+                onClick={() => setActiveTab('responses')}
+                className={`flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl transition ${activeTab === 'responses' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                {language === 'ar' ? 'الردود' : 'Responses'}
+              </button>
+
+              <hr className="border-gray-100 dark:border-gray-800 my-1" />
+
+              <button 
                 onClick={() => setIsMediaLibraryOpen(true)}
                 className="flex items-center gap-3 px-4 py-2.5 text-[12px] font-bold rounded-xl text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition"
               >
@@ -524,6 +638,15 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
           darkMode={darkMode} 
           t={t} 
           language={language} 
+        />
+      ) : activeTab === 'responses' ? (
+        <ResponsesView 
+          newsletterResponses={newsletterResponses || []}
+          contactResponses={contactResponses || []}
+          onDeleteNewsletter={onDeleteNewsletterResponse || (() => {})}
+          onDeleteContact={onDeleteContactResponse || (() => {})}
+          darkMode={darkMode}
+          language={language}
         />
       ) : (
         <SettingsEditor settings={localSettings} onSave={onSaveSettings} onChange={handleSettingsChange} darkMode={darkMode} t={t} language={language} />
@@ -763,6 +886,15 @@ const PageEditor = ({ page, pages, menuConfig, siteSettings, onSave, onBack, ope
               value={localPage.title}
               onChange={e => setLocalPage({...localPage, title: e.target.value})}
               className="text-2xl font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500 transition"
+              placeholder="English Title"
+            />
+            <input 
+              type="text" 
+              value={localPage.titleAr || ''}
+              onChange={e => setLocalPage({...localPage, titleAr: e.target.value})}
+              className="text-2xl font-bold bg-transparent outline-none border-b border-transparent focus:border-blue-500 transition ml-4 text-right"
+              placeholder="العنوان بالعربية"
+              dir="rtl"
             />
             <div className="flex items-center gap-2 mt-1">
               {isEditingSlug ? (
@@ -942,7 +1074,12 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                   <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.titleLabel} 1</h4>
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Title</label>
                   <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-1">العنوان بالعربية (Arabic Title)</label>
+                  <input type="text" value={block.titleAr || ''} onChange={e => onUpdate({ titleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -981,7 +1118,12 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                 <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in slide-in-from-top-2">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.secondTitle}</h4>
                   <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Second Title</label>
                     <input type="text" value={block.secondTitle || ''} onChange={e => onUpdate({ secondTitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">العنوان الثاني بالعربية (Arabic Second Title)</label>
+                    <input type="text" value={block.secondTitleAr || ''} onChange={e => onUpdate({ secondTitleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1011,16 +1153,31 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                   <label className="block text-sm font-medium">{t.subtitleLabel}</label>
                   <input type="color" value={block.subtitleColor || (darkMode ? '#9ca3af' : '#6b7280')} onChange={e => onUpdate({ subtitleColor: e.target.value })} className="w-6 h-6 rounded-md cursor-pointer border-none bg-transparent" />
                 </div>
-                <textarea value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={3} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Subtitle</label>
+                    <textarea value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">الوصف بالعربية (Arabic Subtitle)</label>
+                    <textarea value={block.subtitleAr || ''} onChange={e => onUpdate({ subtitleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} dir="rtl" />
+                  </div>
+                </div>
               </div>
 
               {/* Button 1 */}
               <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4">
                 <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.buttonText} 1</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonText}</label>
-                    <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Button Text</label>
+                      <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">نص الزر بالعربية (Arabic Button Text)</label>
+                      <input type="text" value={block.buttonTextAr || ''} onChange={e => onUpdate({ buttonTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonLink}</label>
@@ -1061,9 +1218,15 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                 <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in slide-in-from-top-2">
                   <h4 className="font-bold text-sm uppercase tracking-wider text-gray-400">{t.secondButtonText}</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonText}</label>
-                      <input type="text" value={block.secondButtonText || ''} onChange={e => onUpdate({ secondButtonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Second Button Text</label>
+                        <input type="text" value={block.secondButtonText || ''} onChange={e => onUpdate({ secondButtonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">نص الزر الثاني بالعربية (Arabic Second Button Text)</label>
+                        <input type="text" value={block.secondButtonTextAr || ''} onChange={e => onUpdate({ secondButtonTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t.buttonLink}</label>
@@ -1130,24 +1293,43 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
           )}
 
           {block.type === 'richText' && (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium mb-1.5">{t.contentHtml}</label>
-              <textarea 
-                value={block.content} 
-                onChange={e => onUpdate({ content: e.target.value })} 
-                className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`} 
-                rows={8} 
-                placeholder={t.placeholderHtml}
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Content (HTML)</label>
+                <textarea 
+                  value={block.content} 
+                  onChange={e => onUpdate({ content: e.target.value })} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`} 
+                  rows={6} 
+                  placeholder={t.placeholderHtml}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">المحتوى بالعربية (Arabic Content HTML)</label>
+                <textarea 
+                  value={block.contentAr || ''} 
+                  onChange={e => onUpdate({ contentAr: e.target.value })} 
+                  className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm text-right ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`} 
+                  rows={6} 
+                  dir="rtl"
+                  placeholder="أدخل المحتوى هنا..."
+                />
+              </div>
             </div>
           )}
 
           {block.type === 'cards' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.sectionHeading}</label>
-                  <input type="text" value={block.heading} onChange={e => onUpdate({ heading: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">English Heading</label>
+                    <input type="text" value={block.heading} onChange={e => onUpdate({ heading: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">العنوان بالعربية (Arabic Heading)</label>
+                    <input type="text" value={block.headingAr || ''} onChange={e => onUpdate({ headingAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">{t.layout || 'Layout'}</label>
@@ -1227,12 +1409,27 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                           </select>
                         </div>
                       </div>
-                      <div className="col-span-2">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.titleLabel}</label>
-                        <input type="text" placeholder={t.titleLabel} value={card.title} onChange={e => { const newCards = [...block.cards]; newCards[i].title = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                      <div className="col-span-2 space-y-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Title</label>
+                          <input type="text" placeholder={t.titleLabel} value={card.title} onChange={e => { const newCards = [...block.cards]; newCards[i].title = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">العنوان بالعربية (Arabic Title)</label>
+                          <input type="text" placeholder="العنوان..." value={card.titleAr || ''} onChange={e => { const newCards = [...block.cards]; newCards[i].titleAr = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                        </div>
                       </div>
                     </div>
-                    <textarea placeholder={t.description} value={card.description} onChange={e => { const newCards = [...block.cards]; newCards[i].description = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full mt-3 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Description</label>
+                        <textarea placeholder={t.description} value={card.description} onChange={e => { const newCards = [...block.cards]; newCards[i].description = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">الوصف بالعربية (Arabic Description)</label>
+                        <textarea placeholder="الوصف..." value={card.descriptionAr || ''} onChange={e => { const newCards = [...block.cards]; newCards[i].descriptionAr = e.target.value; onUpdate({ cards: newCards }); }} className={`w-full px-3 py-2 rounded-lg border outline-none text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} dir="rtl" />
+                      </div>
+                    </div>
                   </div>
                 ))}
                 <button 
@@ -1247,14 +1444,26 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
 
           {block.type === 'contactForm' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.formTitle}</label>
-                  <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Form Title</label>
+                    <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">عنوان النموذج بالعربية (Arabic Form Title)</label>
+                    <input type="text" value={block.titleAr || ''} onChange={e => onUpdate({ titleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.formSubtitle}</label>
-                  <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Form Subtitle</label>
+                    <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">العنوان الفرعي بالعربية (Arabic Form Subtitle)</label>
+                    <input type="text" value={block.subtitleAr || ''} onChange={e => onUpdate({ subtitleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
               </div>
               <div className="space-y-3 mt-4">
@@ -1265,14 +1474,26 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                       <span className="text-xs font-bold text-gray-500 uppercase">{t.field} {i + 1}</span>
                       <button onClick={() => onUpdate({ fields: block.fields.filter((_: any, idx: number) => idx !== i) })} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <input type="text" placeholder={t.label} value={field.label} onChange={e => { const newFields = [...block.fields]; newFields[i].label = e.target.value; onUpdate({ fields: newFields }); }} className={`col-span-2 px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
-                      <select value={field.type} onChange={e => { const newFields = [...block.fields]; newFields[i].type = e.target.value; onUpdate({ fields: newFields }); }} className={`px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
-                        <option value="text">Text</option>
-                        <option value="email">Email</option>
-                        <option value="phone">Phone</option>
-                        <option value="textarea">Textarea</option>
-                      </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Label</label>
+                          <input type="text" placeholder={t.label} value={field.label} onChange={e => { const newFields = [...block.fields]; newFields[i].label = e.target.value; onUpdate({ fields: newFields }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">التسمية بالعربية (Arabic Label)</label>
+                          <input type="text" placeholder="التسمية..." value={field.labelAr || ''} onChange={e => { const newFields = [...block.fields]; newFields[i].labelAr = e.target.value; onUpdate({ fields: newFields }); }} className={`w-full px-3 py-2 rounded-lg border outline-none text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.type || 'Type'}</label>
+                        <select value={field.type} onChange={e => { const newFields = [...block.fields]; newFields[i].type = e.target.value; onUpdate({ fields: newFields }); }} className={`w-full px-3 py-2 rounded-lg border outline-none ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+                          <option value="text">Text</option>
+                          <option value="email">Email</option>
+                          <option value="phone">Phone</option>
+                          <option value="textarea">Textarea</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <input type="checkbox" checked={field.required} onChange={e => { const newFields = [...block.fields]; newFields[i].required = e.target.checked; onUpdate({ fields: newFields }); }} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" />
@@ -1287,29 +1508,65 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                   {t.addField}
                 </button>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Submit Button Text</label>
+                    <input type="text" value={block.submitText || 'Send'} onChange={e => onUpdate({ submitText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">نص زر الإرسال بالعربية (Arabic Submit Button Text)</label>
+                    <input type="text" value={block.submitTextAr || ''} onChange={e => onUpdate({ submitTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {block.type === 'newsletter' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.titleLabel}</label>
-                  <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Title</label>
+                    <input type="text" value={block.title} onChange={e => onUpdate({ title: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">العنوان بالعربية (Arabic Title)</label>
+                    <input type="text" value={block.titleAr || ''} onChange={e => onUpdate({ titleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.subtitleLabel}</label>
-                  <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Subtitle</label>
+                    <input type="text" value={block.subtitle} onChange={e => onUpdate({ subtitle: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">العنوان الفرعي بالعربية (Arabic Subtitle)</label>
+                    <input type="text" value={block.subtitleAr || ''} onChange={e => onUpdate({ subtitleAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.placeholderText}</label>
-                  <input type="text" value={block.placeholderText} onChange={e => onUpdate({ placeholderText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Placeholder</label>
+                    <input type="text" value={block.placeholderText} onChange={e => onUpdate({ placeholderText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">نص التلميح بالعربية (Arabic Placeholder)</label>
+                    <input type="text" value={block.placeholderTextAr || ''} onChange={e => onUpdate({ placeholderTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.buttonText}</label>
-                  <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Button Text</label>
+                    <input type="text" value={block.buttonText} onChange={e => onUpdate({ buttonText: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">نص الزر بالعربية (Arabic Button Text)</label>
+                    <input type="text" value={block.buttonTextAr || ''} onChange={e => onUpdate({ buttonTextAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1317,19 +1574,37 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
 
           {block.type === 'footer' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.companyName}</label>
-                  <input type="text" value={block.companyName} onChange={e => onUpdate({ companyName: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Company Name</label>
+                    <input type="text" value={block.companyName} onChange={e => onUpdate({ companyName: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">اسم الشركة بالعربية (Arabic Company Name)</label>
+                    <input type="text" value={block.companyNameAr || ''} onChange={e => onUpdate({ companyNameAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">{t.copyrightText}</label>
-                  <input type="text" value={block.copyright} onChange={e => onUpdate({ copyright: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Copyright</label>
+                    <input type="text" value={block.copyright} onChange={e => onUpdate({ copyright: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">حقوق النشر بالعربية (Arabic Copyright)</label>
+                    <input type="text" value={block.copyrightAr || ''} onChange={e => onUpdate({ copyrightAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} dir="rtl" />
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">{t.description}</label>
-                <textarea value={block.description} onChange={e => onUpdate({ description: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Description</label>
+                  <textarea value={block.description} onChange={e => onUpdate({ description: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">الوصف بالعربية (Arabic Description)</label>
+                  <textarea value={block.descriptionAr || ''} onChange={e => onUpdate({ descriptionAr: e.target.value })} className={`w-full px-4 py-2 rounded-xl border outline-none focus:ring-2 focus:ring-blue-500 text-right ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`} rows={2} dir="rtl" />
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1345,38 +1620,73 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                 <div className="space-y-4">
                   {(block.columns || []).map((col, colIdx) => (
                     <div key={col.id} className={`p-4 rounded-2xl border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex justify-between items-center mb-4">
-                        <input 
-                          type="text" 
-                          value={col.title} 
-                          onChange={e => {
-                            const newCols = [...block.columns];
-                            newCols[colIdx].title = e.target.value;
-                            onUpdate({ columns: newCols });
-                          }}
-                          className={`bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-500 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                        />
-                        <button 
-                          onClick={() => onUpdate({ columns: block.columns.filter((_, idx) => idx !== colIdx) })}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex flex-col gap-2 mb-4">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1 space-y-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Column Title</label>
+                              <input 
+                                type="text" 
+                                value={col.title} 
+                                onChange={e => {
+                                  const newCols = [...block.columns];
+                                  newCols[colIdx].title = e.target.value;
+                                  onUpdate({ columns: newCols });
+                                }}
+                                className={`w-full bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-500 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 text-right">عنوان العمود بالعربية</label>
+                              <input 
+                                type="text" 
+                                value={col.titleAr || ''} 
+                                onChange={e => {
+                                  const newCols = [...block.columns];
+                                  newCols[colIdx].titleAr = e.target.value;
+                                  onUpdate({ columns: newCols });
+                                }}
+                                className={`w-full bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-500 text-right ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                                dir="rtl"
+                              />
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => onUpdate({ columns: block.columns.filter((_, idx) => idx !== colIdx) })}
+                            className="text-red-500 hover:text-red-700 ml-4"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-3">
                         {col.links.map((link, linkIdx) => (
-                          <div key={link.id} className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                          <div key={link.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end p-3 rounded-xl border border-gray-100 dark:border-gray-800">
                             <div>
-                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{t.linkText || 'Link Text'}</label>
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">English Label</label>
                               <input 
                                 type="text" 
-                                value={link.text} 
+                                value={link.label || ''} 
                                 onChange={e => {
                                   const newCols = [...block.columns];
-                                  newCols[colIdx].links[linkIdx].text = e.target.value;
+                                  newCols[colIdx].links[linkIdx].label = e.target.value;
                                   onUpdate({ columns: newCols });
                                 }}
                                 className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 text-right">التسمية بالعربية</label>
+                              <input 
+                                type="text" 
+                                value={link.labelAr || ''} 
+                                onChange={e => {
+                                  const newCols = [...block.columns];
+                                  newCols[colIdx].links[linkIdx].labelAr = e.target.value;
+                                  onUpdate({ columns: newCols });
+                                }}
+                                className={`w-full px-3 py-1.5 text-sm rounded-lg border outline-none text-right ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'}`}
+                                dir="rtl"
                               />
                             </div>
                             <div className="flex gap-2 items-end">
@@ -1410,7 +1720,7 @@ const BlockEditor = ({ block, index, onUpdate, onRemove, onMove, pages, openMedi
                         <button 
                           onClick={() => {
                             const newCols = [...block.columns];
-                            newCols[colIdx].links.push({ id: Math.random().toString(), text: 'New Link', url: '#' });
+                            newCols[colIdx].links.push({ id: Math.random().toString(), label: 'New Link', url: '#' });
                             onUpdate({ columns: newCols });
                           }}
                           className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:text-blue-600 hover:border-blue-500 transition"
