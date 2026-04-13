@@ -1081,6 +1081,7 @@ const App: React.FC = () => {
         if (unsubProfiles) unsubProfiles();
         if (unsubNewsletterSettings) unsubNewsletterSettings();
         if (unsubNewsletterResponses) unsubNewsletterResponses();
+        if (unsubContactResponses) unsubContactResponses();
       };
     }
   }, [state.storageMode, currentUser, isAuthReady]);
