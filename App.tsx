@@ -835,46 +835,51 @@ const App: React.FC = () => {
     };
     window.addEventListener('hashchange', handleHashChange);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        const email = user.email?.toLowerCase() || '';
-        const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
-        const workspaceId = user.uid;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          const email = user.email?.toLowerCase() || '';
+          const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
+          let workspaceId = user.uid;
 
-        console.log("User logged in:", email, "isSharedAdmin:", isSharedAdmin);
-
-        setCurrentUser({
-          id: workspaceId,
-          name: user.displayName || 'User',
-          email: user.email || '',
-          role: isSharedAdmin ? 'Admin' : 'User'
-        });
-        // Prevent overwriting Firebase data with local state on initial load
-        isRemoteUpdate.current = true; 
-        setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
-        // Allow enough time for onSnapshot to fetch the real cloud data
-        setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
-
-        // Ensure public config has ownerId for submissions
-        if (isSharedAdmin) {
-          console.log("Admin logged in, checking public config for ownerId...");
-          getDoc(doc(db, 'public', 'config')).then(snap => {
-            if (!snap.exists() || snap.data()?.ownerId !== workspaceId) {
-              console.log("Setting ownerId in public config to:", workspaceId);
-              setDoc(doc(db, 'public', 'config'), { ownerId: workspaceId }, { merge: true })
-                .then(() => console.log("Public config updated with ownerId"))
-                .catch(err => console.error("Failed to update public config:", err));
-            } else {
-              console.log("Public config already has correct ownerId:", snap.data().ownerId);
+          if (isSharedAdmin) {
+            console.log("Admin logged in, checking for shared workspace ID...");
+            try {
+              const publicSnap = await getDoc(doc(db, 'public', 'config'));
+              if (publicSnap.exists() && publicSnap.data().ownerId) {
+                workspaceId = publicSnap.data().ownerId;
+                console.log("Using shared workspace ID:", workspaceId);
+              } else {
+                console.log("No shared workspace ID found, setting to current user UID:", user.uid);
+                await setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
+                workspaceId = user.uid;
+              }
+            } catch (e) {
+              console.error("Failed to fetch shared workspace config", e);
             }
+          }
+
+          console.log("User logged in:", email, "isSharedAdmin:", isSharedAdmin, "workspaceId:", workspaceId);
+
+          setCurrentUser({
+            id: workspaceId,
+            name: user.displayName || 'User',
+            email: user.email || '',
+            role: isSharedAdmin ? 'Admin' : 'User'
           });
+          // Prevent overwriting Firebase data with local state on initial load
+          isRemoteUpdate.current = true; 
+          setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
+          // Allow enough time for onSnapshot to fetch the real cloud data
+          setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
+        } else {
+          setCurrentUser(null);
         }
-      } else {
-        setCurrentUser(null);
-        // Reset to initial state but keep firebase mode to trigger public fetch if needed
-        // Actually, we want to keep the storageMode as firebase if it was already set
+      } catch (e) {
+        console.error("Auth state change error", e);
+      } finally {
+        setIsAuthReady(true);
       }
-      setIsAuthReady(true);
     });
     return () => {
       unsubscribe();
@@ -937,33 +942,27 @@ const App: React.FC = () => {
 
       const setupListeners = () => {
         unsubFiles = onSnapshot(collection(db, `users/${uid}/files`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, files: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/files`));
 
         unsubUsers = onSnapshot(collection(db, `users/${uid}/workspace_users`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, users: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/workspace_users`));
 
         unsubDict = onSnapshot(collection(db, `users/${uid}/nameDictionary`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, nameDictionary: snap.docs.map(d => d.data().name) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/nameDictionary`));
 
         unsubVisual = onSnapshot(collection(db, `users/${uid}/visualReferences`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, visualReferences: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/visualReferences`));
 
         unsubHistory = onSnapshot(collection(db, `users/${uid}/correctionHistory`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, correctionHistory: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/correctionHistory`));
 
         // Add listeners for CMS and Settings
         unsubPages = onSnapshot(doc(db, `users/${uid}/cms`, 'pages'), (doc) => {
-          if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             const data = doc.data();
             let pages = [];
@@ -981,33 +980,28 @@ const App: React.FC = () => {
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/pages`));
 
         unsubMenu = onSnapshot(doc(db, `users/${uid}/cms`, 'menu'), (doc) => {
-          if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, cmsMenu: doc.data() as any }));
           }
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/menu`));
 
         unsubAppMenu = onSnapshot(doc(db, `users/${uid}/cms`, 'appMenu'), (doc) => {
-          if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, appMenu: doc.data() as any }));
           }
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/cms/appMenu`));
 
         unsubSite = onSnapshot(doc(db, `users/${uid}/settings`, 'site'), (doc) => {
-          if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, siteSettings: doc.data() as any }));
           }
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/settings/site`));
 
         unsubMedia = onSnapshot(collection(db, `users/${uid}/mediaImages`), (snap) => {
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, mediaImages: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/mediaImages`));
 
         unsubNewsletterSettings = onSnapshot(doc(db, `users/${uid}/settings`, 'newsletter'), (doc) => {
-          if (!doc.exists() && isRemoteUpdate.current) return;
           if (doc.exists()) {
             setState(p => ({ ...p, newsletterSettings: doc.data() as any }));
           }
@@ -1015,13 +1009,11 @@ const App: React.FC = () => {
 
         unsubNewsletterResponses = onSnapshot(collection(db, `users/${uid}/newsletterResponses`), (snap) => {
           console.log(`Newsletter responses updated: ${snap.size} items`);
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, newsletterResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/newsletterResponses`));
 
         unsubContactResponses = onSnapshot(collection(db, `users/${uid}/contactResponses`), (snap) => {
           console.log(`Contact responses updated: ${snap.size} items`);
-          if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, contactResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/contactResponses`));
 
