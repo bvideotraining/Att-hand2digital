@@ -840,9 +840,24 @@ const App: React.FC = () => {
         if (user) {
           const email = user.email?.toLowerCase() || '';
           const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
-          // Use a stable shared workspace ID for both admins to ensure they see the same data
-          // Based on previous logs, 1WoIhiXuQOdJ6e6X8RhCm1um8eb2 seems to be the primary workspace
-          let workspaceId = isSharedAdmin ? '1WoIhiXuQOdJ6e6X8RhCm1um8eb2' : user.uid;
+          let workspaceId = user.uid;
+
+          if (isSharedAdmin) {
+            console.log("Admin logged in, checking for shared workspace ID...");
+            try {
+              const publicSnap = await getDoc(doc(db, 'public', 'config'));
+              if (publicSnap.exists() && publicSnap.data().ownerId) {
+                workspaceId = publicSnap.data().ownerId;
+                console.log("Using shared workspace ID:", workspaceId);
+              } else {
+                console.log("No shared workspace ID found, setting to current user UID:", user.uid);
+                await setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
+                workspaceId = user.uid;
+              }
+            } catch (e) {
+              console.error("Failed to fetch shared workspace config", e);
+            }
+          }
 
           console.log("User logged in:", email, "isSharedAdmin:", isSharedAdmin, "workspaceId:", workspaceId);
 
@@ -1004,27 +1019,32 @@ const App: React.FC = () => {
 
       // Background migration if needed
       const migrateData = async () => {
-        const oldDocRef = doc(db, `app_data/${uid}`);
-        try {
-          const oldDocSnap = await getDoc(oldDocRef);
-          if (oldDocSnap.exists()) {
-            console.log("Legacy data found, migrating...");
-            const data = oldDocSnap.data();
-            const users = typeof data.users === 'string' ? JSON.parse(data.users) : (data.users || []);
-            for (const u of users) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
-            const files = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || []);
-            for (const f of files) await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(f));
-            const dict = typeof data.nameDictionary === 'string' ? JSON.parse(data.nameDictionary) : (data.nameDictionary || []);
-            for (const n of dict) await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
-            const refs = typeof data.visualReferences === 'string' ? JSON.parse(data.visualReferences) : (data.visualReferences || []);
-            for (const r of refs) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
-            const history = typeof data.correctionHistory === 'string' ? JSON.parse(data.correctionHistory) : (data.correctionHistory || []);
-            for (const h of history) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
-            await deleteDoc(oldDocRef);
-            console.log("Migration complete.");
+        const uidsToCheck = [uid, 'JT8wmPCChMSTyUihnM5D29KRywV2', '1WoIhiXuQOdJ6e6X8RhCm1um8eb2'];
+        
+        for (const checkUid of uidsToCheck) {
+          const oldDocRef = doc(db, `app_data/${checkUid}`);
+          try {
+            const oldDocSnap = await getDoc(oldDocRef);
+            if (oldDocSnap.exists()) {
+              console.log(`Legacy data found for ${checkUid}, migrating to workspace ${uid}...`);
+              const data = oldDocSnap.data();
+              const users = typeof data.users === 'string' ? JSON.parse(data.users) : (data.users || []);
+              for (const u of users) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
+              const files = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || []);
+              for (const f of files) await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(f));
+              const dict = typeof data.nameDictionary === 'string' ? JSON.parse(data.nameDictionary) : (data.nameDictionary || []);
+              for (const n of dict) await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
+              const refs = typeof data.visualReferences === 'string' ? JSON.parse(data.visualReferences) : (data.visualReferences || []);
+              for (const r of refs) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
+              const history = typeof data.correctionHistory === 'string' ? JSON.parse(data.correctionHistory) : (data.correctionHistory || []);
+              for (const h of history) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
+              await deleteDoc(oldDocRef);
+              console.log("Migration complete.");
+              break; // Only migrate one
+            }
+          } catch (e) {
+            console.error(`Migration error for ${checkUid}`, e);
           }
-        } catch (e) {
-          console.error("Migration error", e);
         }
       };
 
