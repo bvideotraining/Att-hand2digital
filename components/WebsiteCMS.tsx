@@ -187,7 +187,37 @@ const ResponsesView = ({ newsletterResponses, contactResponses, onDeleteNewslett
   );
 };
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, onDeleteContactResponse, onNewsletterSubmit, onContactSubmit, newsletterSettings, newsletterResponses, contactResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ 
+  pages, 
+  menuConfig, 
+  appMenuConfig, 
+  siteSettings, 
+  mediaImages: propsMediaImages, 
+  onSavePages, 
+  onSaveMenu, 
+  onSaveAppMenu, 
+  onSaveSettings, 
+  onChangeMenu, 
+  onChangeAppMenu, 
+  onChangeSettings, 
+  onSaveMediaImage, 
+  onDeleteMediaImage, 
+  onForceSave, 
+  onSyncBrandingToPublic, 
+  onSaveNewsletterSettings, 
+  onDeleteNewsletterResponse, 
+  onDeleteContactResponse, 
+  onNewsletterSubmit, 
+  onContactSubmit, 
+  newsletterSettings, 
+  newsletterResponses, 
+  contactResponses, 
+  isSyncing, 
+  language, 
+  darkMode, 
+  storageMode, 
+  currentUser 
+}) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -421,7 +451,21 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
   if (editingPageId && editingPage) {
     return (
       <>
-        <PageEditor page={editingPage} pages={pages} menuConfig={menuConfig} siteSettings={siteSettings} onSave={handleUpdatePage} onBack={() => setEditingPageId(null)} openMediaLibrary={openMediaLibrary} handleDirectUpload={handleDirectUpload} darkMode={darkMode} t={t} language={language} />
+        <PageEditor 
+          page={editingPage} 
+          pages={pages} 
+          menuConfig={menuConfig} 
+          siteSettings={siteSettings} 
+          onSave={handleUpdatePage} 
+          onBack={() => setEditingPageId(null)} 
+          openMediaLibrary={openMediaLibrary} 
+          handleDirectUpload={handleDirectUpload} 
+          darkMode={darkMode} 
+          t={t} 
+          language={language}
+          onNewsletterSubmit={onNewsletterSubmit}
+          onContactSubmit={onContactSubmit}
+        />
         <MediaLibrary 
           isOpen={isMediaLibraryOpen} 
           onClose={() => {
@@ -806,7 +850,35 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
 
 // --- Page Editor Subcomponent ---
 
-const PageEditor = ({ page, pages, menuConfig, siteSettings, onSave, onBack, openMediaLibrary, handleDirectUpload, darkMode, t, language }: { page: CmsPage, pages: CmsPage[], menuConfig: CmsMenuConfig, siteSettings: SiteSettings, onSave: (p: CmsPage) => void, onBack: () => void, openMediaLibrary: (cb: (url: string) => void) => void, handleDirectUpload: (file: File, cb: (url: string) => void) => void, darkMode: boolean, t: any, language: string }) => {
+const PageEditor = ({ 
+  page, 
+  pages, 
+  menuConfig, 
+  siteSettings, 
+  onSave, 
+  onBack, 
+  openMediaLibrary, 
+  handleDirectUpload, 
+  darkMode, 
+  t, 
+  language,
+  onNewsletterSubmit,
+  onContactSubmit
+}: { 
+  page: CmsPage, 
+  pages: CmsPage[], 
+  menuConfig: CmsMenuConfig, 
+  siteSettings: SiteSettings, 
+  onSave: (p: CmsPage) => void, 
+  onBack: () => void, 
+  openMediaLibrary: (cb: (url: string) => void) => void, 
+  handleDirectUpload: (file: File, cb: (url: string) => void) => void, 
+  darkMode: boolean, 
+  t: any, 
+  language: string,
+  onNewsletterSubmit?: (email: string) => Promise<void>,
+  onContactSubmit?: (formId: string, formTitle: string, data: any) => Promise<void>
+}) => {
   const [localPage, setLocalPage] = useState<CmsPage>(page);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [isEditingSlug, setIsEditingSlug] = useState(false);
