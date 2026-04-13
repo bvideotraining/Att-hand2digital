@@ -70,6 +70,13 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
     return classes;
   };
 
+  const formatLink = (link?: string) => {
+    if (!link) return '#';
+    if (link.startsWith('http')) return link;
+    if (link.startsWith('#')) return link;
+    return '#' + (link.startsWith('/') ? link : '/' + link);
+  };
+
   const getSocialIcon = (platform: string) => {
     switch (platform.toLowerCase()) {
       case 'facebook': return <Globe className="w-5 h-5" />;
@@ -154,8 +161,8 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
             </button>
 
             {menuConfig.showSignIn && (
-              <button 
-                onClick={onSignIn}
+              <a 
+                href={formatLink(menuConfig.signInLink)}
                 className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95`}
                 style={{ 
                   backgroundColor: menuConfig.signInStyle === 'solid' ? menuConfig.signInBgColor : 'transparent',
@@ -175,7 +182,7 @@ const PublicPage: React.FC<PublicPageProps> = ({ page, pages, menuConfig: rawMen
                 }}
               >
                 {menuConfig.signInText}
-              </button>
+              </a>
             )}
           </div>
         </div>
@@ -211,6 +218,13 @@ const BlockRenderer: React.FC<{
   const [isSuccess, setIsSuccess] = useState(false);
 
   const isAr = language === 'ar';
+
+  const formatLink = (link?: string) => {
+    if (!link) return '#';
+    if (link.startsWith('http')) return link;
+    if (link.startsWith('#')) return link;
+    return '#' + (link.startsWith('/') ? link : '/' + link);
+  };
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,7 +341,7 @@ const BlockRenderer: React.FC<{
               className={`flex flex-wrap gap-4 ${isSplit ? 'justify-start' : 'justify-center'}`}
             >
               <a 
-                href={b.buttonLink}
+                href={formatLink(b.buttonLink)}
                 className="inline-flex px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl items-center justify-center gap-2 hover:scale-105 active:scale-95"
                 style={{ 
                   backgroundColor: b.buttonBgColor || '#2563eb',
@@ -340,7 +354,7 @@ const BlockRenderer: React.FC<{
               </a>
               {b.showSecondButton && (b.secondButtonText || b.secondButtonTextAr) && (
                 <a 
-                  href={b.secondButtonLink}
+                  href={formatLink(b.secondButtonLink)}
                   className="inline-flex px-8 py-4 rounded-2xl font-bold text-lg transition shadow-xl items-center justify-center gap-2 hover:scale-105 active:scale-95"
                   style={{ 
                     backgroundColor: b.secondButtonBgColor || (darkMode ? '#1f2937' : '#f3f4f6'),
@@ -602,7 +616,7 @@ const BlockRenderer: React.FC<{
                       {col.links.map(link => (
                         <li key={link.id}>
                           <a 
-                            href={link.url} 
+                            href={formatLink(link.url)} 
                             className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                           >
                             {isAr && link.labelAr ? link.labelAr : link.label}

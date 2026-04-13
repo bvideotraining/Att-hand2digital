@@ -1910,41 +1910,10 @@ const App: React.FC = () => {
             <Loader2 className="animate-spin h-12 w-12 text-blue-600" />
           </div>
         ) : !currentUser ? (
-          showLanding ? (
-            state.cmsPages && state.cmsPages.length > 0 && state.cmsMenu ? (
-              <PublicPage 
-                page={state.cmsPages.find(p => {
-                  const normalizedHash = currentHash.replace(/^#\/?/, '');
-                  const normalizedSlug = p.slug.replace(/^\//, '');
-                  return normalizedSlug === normalizedHash || (currentHash === '' && p.slug === '/');
-                }) || state.cmsPages[0]} 
-                pages={state.cmsPages}
-                menuConfig={state.cmsMenu}
-                darkMode={state.darkMode}
-                language={state.language}
-                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
-                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
-                onSignIn={() => setShowLanding(false)}
-                onNewsletterSubmit={handleNewsletterSubmit}
-                onContactSubmit={handleContactSubmit}
-              />
-            ) : (
-              <HomePage 
-                t={t} 
-                language={state.language} 
-                darkMode={state.darkMode} 
-                siteSettings={state.siteSettings}
-                appMenuConfig={state.appMenu}
-                cmsMenuConfig={state.cmsMenu}
-                pages={state.cmsPages}
-                onGetStarted={() => setShowLanding(false)} 
-                onSignIn={() => setShowLanding(false)}
-                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
-                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
-              />
-            )
-          ) : (
+          (currentHash === '#/login' || currentHash === '#/signup') ? (
             <LoginPage 
+              isSignUp={currentHash === '#/signup'}
+              onNavigate={(path: string) => window.location.hash = '#' + path}
               onLogin={handleFormLogin} 
               onGoogleLogin={handleGoogleLogin}
               onFirebaseLogin={handleFirebaseEmailLogin}
@@ -1963,8 +1932,41 @@ const App: React.FC = () => {
               error={loginError} 
               onCloseError={() => setLoginError(false)} 
               isConnecting={isConnecting}
-              onBackToHome={() => setShowLanding(true)}
+              onBackToHome={() => window.location.hash = '#/'}
             />
+          ) : (
+            state.cmsPages && state.cmsPages.length > 0 && state.cmsMenu ? (
+              <PublicPage 
+                page={state.cmsPages.find(p => {
+                  const normalizedHash = currentHash.replace(/^#\/?/, '');
+                  const normalizedSlug = p.slug.replace(/^\//, '');
+                  return normalizedSlug === normalizedHash || (currentHash === '' && p.slug === '/');
+                }) || state.cmsPages[0]} 
+                pages={state.cmsPages}
+                menuConfig={state.cmsMenu}
+                darkMode={state.darkMode}
+                language={state.language}
+                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
+                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+                onSignIn={() => window.location.hash = '#/login'}
+                onNewsletterSubmit={handleNewsletterSubmit}
+                onContactSubmit={handleContactSubmit}
+              />
+            ) : (
+              <HomePage 
+                t={t} 
+                language={state.language} 
+                darkMode={state.darkMode} 
+                siteSettings={state.siteSettings}
+                appMenuConfig={state.appMenu}
+                cmsMenuConfig={state.cmsMenu}
+                pages={state.cmsPages}
+                onGetStarted={() => window.location.hash = '#/signup'} 
+                onSignIn={() => window.location.hash = '#/login'}
+                onLanguageToggle={() => setState(p => ({...p, language: p.language === 'ar' ? 'en' : 'ar'}))}
+                onThemeToggle={() => setState(p => ({...p, darkMode: !p.darkMode}))}
+              />
+            )
           )
         ) : (
           <Layout 
@@ -2059,11 +2061,13 @@ const LoginPage = ({
   error, 
   onCloseError, 
   isConnecting,
-  onBackToHome
+  onBackToHome,
+  isSignUp = false,
+  onNavigate
 }: any) => {
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState(''); 
-  const [mode, setMode] = useState<'local' | 'firebase'>('local');
+  const [mode, setMode] = useState<'local' | 'firebase'>('firebase'); // Default to firebase since we want manual accounts
   const [isResetMode, setIsResetMode] = useState(false);
   const t = useTranslation(language);
   const isRtl = language === 'ar';
@@ -2277,51 +2281,65 @@ const LoginPage = ({
                   placeholder="••••••••" 
                 />
               </div>
-              <div className="flex gap-2 mt-2">
-                <button 
-                  type="button"
-                  onClick={() => onFirebaseLogin(email, password)}
-                  disabled={isConnecting || !email || !password}
-                  className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${isConnecting ? 'opacity-50' : ''}`}
-                >
-                  <LogIn className="w-4 h-4" />
-                  {t.login}
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => onFirebaseSignUp(email, password)}
-                  disabled={isConnecting || !email || !password}
-                  className={`flex-1 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} ${isConnecting ? 'opacity-50' : ''}`}
-                >
-                  <UserPlus className="w-4 h-4" />
-                  {t.signUp || 'Sign Up'}
-                </button>
+              <div className="flex flex-col gap-4 mt-4">
+                {isSignUp ? (
+                  <>
+                    <button 
+                      type="button"
+                      onClick={() => onFirebaseSignUp(email, password)}
+                      disabled={isConnecting || !email || !password}
+                      className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${isConnecting ? 'opacity-50' : ''}`}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      {t.signUp || 'Sign Up'}
+                    </button>
+                    <div className="text-center">
+                      <span className="text-gray-500 text-sm">Already have an account? </span>
+                      <button 
+                        type="button"
+                        onClick={() => onNavigate ? onNavigate('/login') : window.location.hash = '#/login'}
+                        className={`text-sm font-bold transition ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                      >
+                        {t.login}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      type="button"
+                      onClick={() => onFirebaseLogin(email, password)}
+                      disabled={isConnecting || !email || !password}
+                      className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${isConnecting ? 'opacity-50' : ''}`}
+                    >
+                      <LogIn className="w-4 h-4" />
+                      {t.login}
+                    </button>
+                    <div className="text-center">
+                      <span className="text-gray-500 text-sm">Don't have an account? </span>
+                      <button 
+                        type="button"
+                        onClick={() => onNavigate ? onNavigate('/signup') : window.location.hash = '#/signup'}
+                        className={`text-sm font-bold transition ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                      >
+                        {t.signUp || 'Sign Up'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="text-center mt-2">
-                <button 
-                  type="button"
-                  onClick={() => setIsResetMode(true)}
-                  className={`text-sm font-bold transition ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
-                >
-                  {t.forgotPassword}
-                </button>
-              </div>
-
-              <div className="relative flex items-center py-2">
-                <div className="flex-grow border-t border-gray-200 dark:border-gray-800"></div>
-                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold">{t.or || 'OR'}</span>
-                <div className="flex-grow border-t border-gray-200 dark:border-gray-800"></div>
-              </div>
-
-              <button 
-                onClick={onGoogleLogin}
-                disabled={isConnecting}
-                className={`w-full border-2 hover:border-blue-500 py-3 rounded-xl font-bold transition flex items-center justify-center gap-3 ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-300' : 'bg-white border-gray-200 text-gray-700'} ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isConnecting ? <Loader2 className="animate-spin w-5 h-5" /> : <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />}
-                {t.signInWithGoogle}
-              </button>
+              {!isSignUp && (
+                <div className="text-center mt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setIsResetMode(true)}
+                    className={`text-sm font-bold transition ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                  >
+                    {t.forgotPassword}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
