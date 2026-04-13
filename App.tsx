@@ -1989,6 +1989,8 @@ const App: React.FC = () => {
                 onSaveNewsletterSettings={(settings) => updateStateAndFirestore('settings', 'newsletter', settings, false, p => ({...p, newsletterSettings: settings}))}
                 onDeleteNewsletterResponse={handleDeleteNewsletterResponse}
                 onDeleteContactResponse={handleDeleteContactResponse}
+                onNewsletterSubmit={handleNewsletterSubmit}
+                onContactSubmit={handleContactSubmit}
                 onChangeMenu={(menu) => updateStateAndFirestore('cms', 'menu', menu, false, p => ({...p, cmsMenu: menu}), true)}
                 onChangeAppMenu={(appMenu) => updateStateAndFirestore('cms', 'appMenu', appMenu, false, p => ({...p, appMenu}), true)}
                 onChangeSettings={(settings) => updateStateAndFirestore('settings', 'site', settings, false, p => ({...p, siteSettings: settings}), true)}

@@ -31,6 +31,8 @@ interface WebsiteCMSProps {
   newsletterSettings?: import('../types').NewsletterSettings;
   newsletterResponses?: import('../types').NewsletterResponse[];
   contactResponses?: import('../types').ContactResponse[];
+  onNewsletterSubmit?: (email: string) => Promise<void>;
+  onContactSubmit?: (formId: string, formTitle: string, data: any) => Promise<void>;
   isSyncing?: boolean;
   language: string;
   darkMode: boolean;
@@ -183,7 +185,7 @@ const ResponsesView = ({ newsletterResponses, contactResponses, onDeleteNewslett
   );
 };
 
-const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, onDeleteContactResponse, newsletterSettings, newsletterResponses, contactResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
+const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfig, siteSettings, mediaImages: propsMediaImages, onSavePages, onSaveMenu, onSaveAppMenu, onSaveSettings, onChangeMenu, onChangeAppMenu, onChangeSettings, onSaveMediaImage, onDeleteMediaImage, onForceSave, onSyncBrandingToPublic, onSaveNewsletterSettings, onDeleteNewsletterResponse, onDeleteContactResponse, onNewsletterSubmit, onContactSubmit, newsletterSettings, newsletterResponses, contactResponses, isSyncing, language, darkMode, storageMode, currentUser }) => {
   const t = useMemo(() => {
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
@@ -866,8 +868,12 @@ const PageEditor = ({ page, pages, menuConfig, siteSettings, onSave, onBack, ope
           pages={[localPage]} 
           menuConfig={menuConfig} 
           darkMode={darkMode} 
+          language={language}
+          onLanguageToggle={() => {}}
           onThemeToggle={() => {}} 
           onSignIn={() => {}} 
+          onNewsletterSubmit={onNewsletterSubmit}
+          onContactSubmit={onContactSubmit}
         />
       </div>
     );
