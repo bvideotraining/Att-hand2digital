@@ -12,7 +12,7 @@ import { extractAttendanceData } from './services/geminiService';
 import { uploadToFirebaseStorage } from './services/storageService';
 import { exportToExcel } from './utils/excelExport';
 import { auth, db, googleProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc, getDocFromServer } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, deleteDoc, getDocFromServer, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   FileText, 
@@ -75,6 +75,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  window.dispatchEvent(new CustomEvent('firestore-error', { detail: errInfo }));
   throw new Error(JSON.stringify(errInfo));
 };
 
@@ -803,6 +804,41 @@ const App: React.FC = () => {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [otherUidData, setOtherUidData] = useState<string>('Not checked');
+  const [manualUid, setManualUid] = useState<string>('');
+
+  const checkOtherUid = async () => {
+    setOtherUidData('Checking...');
+    try {
+      const searchUid = manualUid || '1WoIhiXuQOdJ6e6X8RhCm1um8eb2';
+      const filesSnap = await getDocs(collection(db, `users/${searchUid}/files`));
+      const dictSnap = await getDocs(collection(db, `users/${searchUid}/nameDictionary`));
+      
+      let legacyFiles = 0;
+      const appDataSnap = await getDoc(doc(db, `app_data/${searchUid}`));
+      if (appDataSnap.exists()) {
+        const data = appDataSnap.data();
+        const files = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || []);
+        legacyFiles = files.length;
+      }
+      
+      setOtherUidData(`Found ${filesSnap.size} files, ${dictSnap.size} names. Legacy files: ${legacyFiles}`);
+    } catch (e: any) {
+      setOtherUidData(`Error: ${e.message}`);
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      setDebugLogs(prev => {
+        const newLogs = [...prev, `[${e.detail.operationType}] ${e.detail.path}: ${e.detail.error}`];
+        return newLogs.slice(-5); // Keep last 5 errors
+      });
+    };
+    window.addEventListener('firestore-error', handler);
+    return () => window.removeEventListener('firestore-error', handler);
+  }, []);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'error' | 'syncing' | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -843,19 +879,46 @@ const App: React.FC = () => {
           let workspaceId = user.uid;
 
           if (isSharedAdmin) {
-            console.log("Admin logged in, checking for shared workspace ID...");
+            console.log("Admin logged in, checking config...");
             try {
+              // 1. First check if public config already has a valid ownerId
               const publicSnap = await getDoc(doc(db, 'public', 'config'));
-              if (publicSnap.exists() && publicSnap.data().ownerId) {
-                workspaceId = publicSnap.data().ownerId;
-                console.log("Using shared workspace ID:", workspaceId);
+              let configOwnerId = publicSnap.exists() ? publicSnap.data().ownerId : null;
+              
+              if (configOwnerId) {
+                workspaceId = configOwnerId;
+                console.log("Using workspace ID from config:", workspaceId);
               } else {
-                console.log("No shared workspace ID found, setting to current user UID:", user.uid);
-                await setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
-                workspaceId = user.uid;
+                // 2. If no config, scan known workspaces
+                console.log("No config found, scanning known workspaces for data...");
+                let foundWorkspaceId = user.uid;
+                let maxFiles = -1;
+                
+                const uidsToSearch = [
+                  user.uid, 
+                  'JT8wmPCChMSTyUihnM5D29KRywV2', 
+                  '1WoIhiXuQOdJ6e6X8RhCm1um8eb2',
+                  'itQ96nDqNlSJULtfBsigfXBOQSr2'
+                ];
+                
+                for (const searchUid of uidsToSearch) {
+                  try {
+                    const filesSnap = await getDocs(collection(db, `users/${searchUid}/files`));
+                    if (filesSnap.size > maxFiles) {
+                      maxFiles = filesSnap.size;
+                      foundWorkspaceId = searchUid;
+                    }
+                  } catch (e) {
+                    console.warn(`Could not check workspace ${searchUid}:`, e);
+                  }
+                }
+
+                workspaceId = foundWorkspaceId;
+                console.log(`Auto-selected workspace ID with most data (${maxFiles} files):`, workspaceId);
+                await setDoc(doc(db, 'public', 'config'), { ownerId: workspaceId }, { merge: true });
               }
             } catch (e) {
-              console.error("Failed to fetch shared workspace config", e);
+              console.error("Failed to execute workspace locator", e);
             }
           }
 
@@ -1887,6 +1950,39 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div dir={state.language === 'ar' ? 'rtl' : 'ltr'} className={`${state.language === 'ar' ? 'rtl-layout' : 'ltr-layout'} ${state.darkMode ? 'dark' : ''}`}>
+        <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 p-2 text-xs z-[9999] font-mono whitespace-pre-wrap max-h-48 overflow-auto border-t border-green-500/30">
+          <div className="flex justify-between items-center mb-1 border-b border-green-500/30 pb-1">
+            <strong className="text-white">DIAGNOSTIC PANEL</strong>
+            <span className="text-gray-400">If data is missing, take a screenshot of this panel.</span>
+          </div>
+          <div>Logged in Email: <span className="text-white">{currentUser?.email || 'Not logged in'}</span></div>
+          <div>Assigned Workspace ID: <span className="text-white">{currentUser?.id || 'None'}</span></div>
+          <div>Account Role: <span className="text-white">{currentUser?.role || 'None'}</span></div>
+          <div>Database Loaded: <span className="text-white">{state.isDatabaseLoaded ? 'Yes' : 'No'}</span></div>
+          <div className="mt-1 flex items-center gap-2">
+            <input 
+              type="text" 
+              value={manualUid} 
+              onChange={(e) => setManualUid(e.target.value)} 
+              placeholder="Enter UID from Firebase (e.g. itQ96...)" 
+              className="bg-gray-800 text-white px-2 py-1 rounded text-xs border border-gray-600 w-64"
+            />
+            <button onClick={checkOtherUid} className="bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition-colors">Check This ID</button>
+            <button onClick={async () => {
+              if (manualUid) {
+                await setDoc(doc(db, 'public', 'config'), { ownerId: manualUid }, { merge: true });
+                window.location.reload();
+              }
+            }} className="bg-blue-700 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition-colors">Force Load This ID</button>
+            <span className="text-yellow-400">{otherUidData}</span>
+          </div>
+          {debugLogs.length > 0 && (
+            <div className="mt-2 text-red-400">
+              <strong className="text-red-500">Errors Detected:</strong>
+              {debugLogs.map((log, i) => <div key={i}>{log}</div>)}
+            </div>
+          )}
+        </div>
         <input ref={legacyFileInputRef} type="file" className="hidden" accept=".json" onChange={handleLegacyFileSelect} />
         
         {!isAuthReady ? (

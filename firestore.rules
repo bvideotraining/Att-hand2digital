@@ -11,6 +11,7 @@ service cloud.firestore {
       return isAuthenticated() && (
         request.auth.uid == 'JT8wmPCChMSTyUihnM5D29KRywV2' ||
         request.auth.uid == '1WoIhiXuQOdJ6e6X8RhCm1um8eb2' ||
+        request.auth.uid == 'itQ96nDqNlSJULtfBsigfXBOQSr2' ||
         request.auth.token.email == 'bvideotraining@gmail.com' ||
         request.auth.token.email == 'hr.totscollege@gmail.com'
       );
