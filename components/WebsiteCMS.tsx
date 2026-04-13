@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CmsPage, CmsMenuConfig, CmsBlock, HeroBlock, RichTextBlock, CardsBlock, FormBlock, NewsletterBlock, FooterBlock, SiteSettings, BlockType, SocialLink } from '../types';
 import { Settings, Image as ImageIcon, Plus, Layout, Type, CreditCard, FormInput, PanelBottom, ArrowLeft, Trash2, Copy, ExternalLink, Eye, Save, GripVertical, ChevronDown, ChevronUp, Globe, Key, Code, Mail, ArrowRight, Home, Zap, ShieldCheck, Cpu, Users, UserPlus, FileText, X, Link as LinkIcon, RefreshCw, Heart, Star, Bell, Camera, Coffee, Music, Video, MapPin, Search, MessageSquare, Edit, Download, Upload, Moon, Sun } from 'lucide-react';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +7,8 @@ import PublicPage from './PublicPage';
 import TemplateSelector, { PAGE_TEMPLATES } from './TemplateSelector';
 import { TRANSLATIONS } from '../constants';
 import { uploadToFirebaseStorage } from '../services/storageService';
+import { db } from '../firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface WebsiteCMSProps {
   pages: CmsPage[];
@@ -190,6 +192,19 @@ const WebsiteCMS: React.FC<WebsiteCMSProps> = ({ pages, menuConfig, appMenuConfi
     const safeLang = (language === 'ar' || language === 'en') ? language : 'ar';
     return (TRANSLATIONS[safeLang] || TRANSLATIONS.ar).cms;
   }, [language]);
+
+  useEffect(() => {
+    if (currentUser?.id && storageMode === 'firebase') {
+      const isSharedAdmin = currentUser?.email?.toLowerCase() === 'bvideotraining@gmail.com' || currentUser?.email?.toLowerCase() === 'hr.totscollege@gmail.com';
+      if (isSharedAdmin) {
+        getDoc(doc(db, 'public', 'config')).then(snap => {
+          if (!snap.exists() || !snap.data()?.ownerId) {
+            setDoc(doc(db, 'public', 'config'), { ownerId: currentUser.id }, { merge: true }).catch(console.error);
+          }
+        }).catch(console.error);
+      }
+    }
+  }, [currentUser, storageMode]);
 
   const [activeTab, setActiveTab] = useState<'pages' | 'menu' | 'appMenu' | 'settings' | 'newsletter' | 'responses'>('pages');
   const [editingPageId, setEditingPageId] = useState<string | null>(null);

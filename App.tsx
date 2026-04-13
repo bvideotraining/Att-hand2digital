@@ -1392,9 +1392,13 @@ const App: React.FC = () => {
     };
 
     try {
-      let targetUid = currentUser?.id;
-      if (!targetUid) {
-        console.log("Public user submission, fetching ownerId from public config...");
+      let targetUid = null;
+      const isSharedAdmin = currentUser?.email?.toLowerCase() === 'bvideotraining@gmail.com' || currentUser?.email?.toLowerCase() === 'hr.totscollege@gmail.com';
+      
+      if (isSharedAdmin && currentUser?.id) {
+        targetUid = currentUser.id;
+      } else {
+        console.log("Fetching ownerId from public config...");
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
         if (publicConfig.exists()) {
           targetUid = publicConfig.data()?.ownerId;
@@ -1406,7 +1410,7 @@ const App: React.FC = () => {
       
       if (targetUid) {
         console.log("Saving newsletter response to Firestore at path:", `users/${targetUid}/newsletterResponses/${response.id}`);
-        await setDoc(doc(db, `users/${targetUid}/newsletterResponses`, response.id), response);
+        await setDoc(doc(db, `users/${targetUid}/newsletterResponses`, response.id), removeUndefined(response));
         console.log("Newsletter submission successfully saved to Firestore");
         
         // If we are the admin, update local state immediately for better UX
@@ -1441,9 +1445,13 @@ const App: React.FC = () => {
     };
 
     try {
-      let targetUid = currentUser?.id;
-      if (!targetUid) {
-        console.log("Public user submission, fetching ownerId from public config...");
+      let targetUid = null;
+      const isSharedAdmin = currentUser?.email?.toLowerCase() === 'bvideotraining@gmail.com' || currentUser?.email?.toLowerCase() === 'hr.totscollege@gmail.com';
+      
+      if (isSharedAdmin && currentUser?.id) {
+        targetUid = currentUser.id;
+      } else {
+        console.log("Fetching ownerId from public config...");
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
         if (publicConfig.exists()) {
           targetUid = publicConfig.data()?.ownerId;
@@ -1455,7 +1463,7 @@ const App: React.FC = () => {
       
       if (targetUid) {
         console.log("Saving contact response to Firestore at path:", `users/${targetUid}/contactResponses/${response.id}`);
-        await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), response);
+        await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), removeUndefined(response));
         console.log("Contact form submission successfully saved to Firestore");
 
         // If we are the admin, update local state immediately for better UX
