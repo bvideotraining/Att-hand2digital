@@ -859,13 +859,13 @@ const App: React.FC = () => {
         if (isSharedAdmin) {
           console.log("Admin logged in, checking public config for ownerId...");
           getDoc(doc(db, 'public', 'config')).then(snap => {
-            if (!snap.exists() || !snap.data()?.ownerId) {
-              console.log("Setting ownerId in public config to:", user.uid);
-              setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true })
+            if (!snap.exists() || snap.data()?.ownerId !== workspaceId) {
+              console.log("Setting ownerId in public config to:", workspaceId);
+              setDoc(doc(db, 'public', 'config'), { ownerId: workspaceId }, { merge: true })
                 .then(() => console.log("Public config updated with ownerId"))
                 .catch(err => console.error("Failed to update public config:", err));
             } else {
-              console.log("Public config already has ownerId:", snap.data().ownerId);
+              console.log("Public config already has correct ownerId:", snap.data().ownerId);
             }
           });
         }
@@ -1191,7 +1191,7 @@ const App: React.FC = () => {
     try {
       const publicRef = doc(db, 'public', 'config');
       const update = {
-        ownerId: currentUser.id,
+        ownerId: currentUser.id, // This is already workspaceId
         cmsPages: state.cmsPages,
         cmsMenu: state.cmsMenu,
         appMenu: state.appMenu,
@@ -1422,8 +1422,9 @@ const App: React.FC = () => {
         }
         return;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Direct firebase newsletter submission failed:", e);
+      alert("Submission failed: " + (e.message || "Unknown error"));
     }
 
     console.log("Falling back to local state for newsletter submission");
@@ -1462,8 +1463,12 @@ const App: React.FC = () => {
       }
       
       if (targetUid) {
-        console.log("Saving contact response to Firestore at path:", `users/${targetUid}/contactResponses/${response.id}`);
-        await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), removeUndefined(response));
+        const path = `users/${targetUid}/contactResponses`;
+        const cleanResponse = removeUndefined(response);
+        console.log("Saving contact response to Firestore at path:", `${path}/${response.id}`);
+        console.log("Payload:", JSON.stringify(cleanResponse));
+        
+        await setDoc(doc(db, path, response.id), cleanResponse);
         console.log("Contact form submission successfully saved to Firestore");
 
         // If we are the admin, update local state immediately for better UX
@@ -1475,8 +1480,9 @@ const App: React.FC = () => {
         }
         return;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Direct firebase contact submission failed:", e);
+      alert("Submission failed: " + (e.message || "Unknown error"));
     }
 
     console.log("Falling back to local state for contact submission");
