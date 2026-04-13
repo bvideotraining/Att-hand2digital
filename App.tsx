@@ -811,6 +811,21 @@ const App: React.FC = () => {
   const legacyFileInputRef = useRef<HTMLInputElement>(null);
   const isRemoteUpdate = useRef(false);
 
+  // Firestore Connection Test
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection test successful");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Firestore is offline. Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
+  }, []);
+
   // Firebase Auth Listener
   useEffect(() => {
     const handleHashChange = () => {
@@ -826,6 +841,8 @@ const App: React.FC = () => {
         const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
         const workspaceId = user.uid;
 
+        console.log("User logged in:", email, "isSharedAdmin:", isSharedAdmin);
+
         setCurrentUser({
           id: workspaceId,
           name: user.displayName || 'User',
@@ -840,9 +857,15 @@ const App: React.FC = () => {
 
         // Ensure public config has ownerId for submissions
         if (isSharedAdmin) {
+          console.log("Admin logged in, checking public config for ownerId...");
           getDoc(doc(db, 'public', 'config')).then(snap => {
             if (!snap.exists() || !snap.data()?.ownerId) {
-              setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
+              console.log("Setting ownerId in public config to:", user.uid);
+              setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true })
+                .then(() => console.log("Public config updated with ownerId"))
+                .catch(err => console.error("Failed to update public config:", err));
+            } else {
+              console.log("Public config already has ownerId:", snap.data().ownerId);
             }
           });
         }
@@ -991,11 +1014,13 @@ const App: React.FC = () => {
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/settings/newsletter`));
 
         unsubNewsletterResponses = onSnapshot(collection(db, `users/${uid}/newsletterResponses`), (snap) => {
+          console.log(`Newsletter responses updated: ${snap.size} items`);
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, newsletterResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/newsletterResponses`));
 
         unsubContactResponses = onSnapshot(collection(db, `users/${uid}/contactResponses`), (snap) => {
+          console.log(`Contact responses updated: ${snap.size} items`);
           if (snap.empty && isRemoteUpdate.current) return;
           setState(p => ({ ...p, contactResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/contactResponses`));
@@ -1358,6 +1383,7 @@ const App: React.FC = () => {
   };
 
   const handleNewsletterSubmit = async (email: string) => {
+    console.log("Newsletter submission attempt for:", email);
     const response: import('./types').NewsletterResponse = {
       id: Math.random().toString(36).substr(2, 9),
       email,
@@ -1368,21 +1394,35 @@ const App: React.FC = () => {
     try {
       let targetUid = currentUser?.id;
       if (!targetUid) {
+        console.log("Public user submission, fetching ownerId from public config...");
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
         if (publicConfig.exists()) {
           targetUid = publicConfig.data()?.ownerId;
+          console.log("Found targetUid from public config:", targetUid);
+        } else {
+          console.warn("Public config not found, cannot save to Firestore");
         }
       }
       
       if (targetUid) {
+        console.log("Saving newsletter response to Firestore at path:", `users/${targetUid}/newsletterResponses/${response.id}`);
         await setDoc(doc(db, `users/${targetUid}/newsletterResponses`, response.id), response);
-        console.log("Newsletter submission saved to Firestore");
+        console.log("Newsletter submission successfully saved to Firestore");
+        
+        // If we are the admin, update local state immediately for better UX
+        if (currentUser?.id === targetUid) {
+          setState(p => ({
+            ...p,
+            newsletterResponses: [response, ...(p.newsletterResponses || [])]
+          }));
+        }
         return;
       }
     } catch (e) {
-      console.warn("Direct firebase newsletter submission failed, falling back to local state", e);
+      console.error("Direct firebase newsletter submission failed:", e);
     }
 
+    console.log("Falling back to local state for newsletter submission");
     setState(p => ({
       ...p,
       newsletterResponses: [response, ...(p.newsletterResponses || [])]
@@ -1390,6 +1430,7 @@ const App: React.FC = () => {
   };
 
   const handleContactSubmit = async (formId: string, formTitle: string, data: any) => {
+    console.log("Contact form submission attempt for:", formTitle);
     const response: import('./types').ContactResponse = {
       id: Math.random().toString(36).substr(2, 9),
       formId,
@@ -1402,21 +1443,35 @@ const App: React.FC = () => {
     try {
       let targetUid = currentUser?.id;
       if (!targetUid) {
+        console.log("Public user submission, fetching ownerId from public config...");
         const publicConfig = await getDoc(doc(db, 'public', 'config'));
         if (publicConfig.exists()) {
           targetUid = publicConfig.data()?.ownerId;
+          console.log("Found targetUid from public config:", targetUid);
+        } else {
+          console.warn("Public config not found, cannot save to Firestore");
         }
       }
       
       if (targetUid) {
+        console.log("Saving contact response to Firestore at path:", `users/${targetUid}/contactResponses/${response.id}`);
         await setDoc(doc(db, `users/${targetUid}/contactResponses`, response.id), response);
-        console.log("Contact form submission saved to Firestore");
+        console.log("Contact form submission successfully saved to Firestore");
+
+        // If we are the admin, update local state immediately for better UX
+        if (currentUser?.id === targetUid) {
+          setState(p => ({
+            ...p,
+            contactResponses: [response, ...(p.contactResponses || [])]
+          }));
+        }
         return;
       }
     } catch (e) {
-      console.warn("Direct firebase contact submission failed, falling back to local state", e);
+      console.error("Direct firebase contact submission failed:", e);
     }
 
+    console.log("Falling back to local state for contact submission");
     setState(p => ({
       ...p,
       contactResponses: [response, ...(p.contactResponses || [])]
