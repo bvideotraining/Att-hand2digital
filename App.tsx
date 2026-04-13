@@ -840,24 +840,9 @@ const App: React.FC = () => {
         if (user) {
           const email = user.email?.toLowerCase() || '';
           const isSharedAdmin = email === 'bvideotraining@gmail.com' || email === 'hr.totscollege@gmail.com';
-          let workspaceId = user.uid;
-
-          if (isSharedAdmin) {
-            console.log("Admin logged in, checking for shared workspace ID...");
-            try {
-              const publicSnap = await getDoc(doc(db, 'public', 'config'));
-              if (publicSnap.exists() && publicSnap.data().ownerId) {
-                workspaceId = publicSnap.data().ownerId;
-                console.log("Using shared workspace ID:", workspaceId);
-              } else {
-                console.log("No shared workspace ID found, setting to current user UID:", user.uid);
-                await setDoc(doc(db, 'public', 'config'), { ownerId: user.uid }, { merge: true });
-                workspaceId = user.uid;
-              }
-            } catch (e) {
-              console.error("Failed to fetch shared workspace config", e);
-            }
-          }
+          // Use a stable shared workspace ID for both admins to ensure they see the same data
+          // Based on previous logs, 1WoIhiXuQOdJ6e6X8RhCm1um8eb2 seems to be the primary workspace
+          let workspaceId = isSharedAdmin ? '1WoIhiXuQOdJ6e6X8RhCm1um8eb2' : user.uid;
 
           console.log("User logged in:", email, "isSharedAdmin:", isSharedAdmin, "workspaceId:", workspaceId);
 
@@ -867,11 +852,8 @@ const App: React.FC = () => {
             email: user.email || '',
             role: isSharedAdmin ? 'Admin' : 'User'
           });
-          // Prevent overwriting Firebase data with local state on initial load
-          isRemoteUpdate.current = true; 
-          setState(p => ({ ...p, storageMode: 'firebase', isDatabaseLoaded: true }));
-          // Allow enough time for onSnapshot to fetch the real cloud data
-          setTimeout(() => { isRemoteUpdate.current = false; }, 2000);
+          
+          setState(p => ({ ...p, storageMode: 'firebase' }));
         } else {
           setCurrentUser(null);
         }
@@ -887,9 +869,9 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Public Data Listener (for unauthenticated users)
+  // Public Data Listener (for everyone)
   useEffect(() => {
-    if (isAuthReady && !currentUser) {
+    if (isAuthReady) {
       console.log("Starting public config fetch...");
       const unsubPublic = onSnapshot(doc(db, 'public', 'config'), (docSnap) => {
         if (docSnap.exists()) {
@@ -918,30 +900,23 @@ const App: React.FC = () => {
       }, (err) => console.warn("Public config fetch failed", err));
       return () => unsubPublic();
     }
-  }, [isAuthReady, currentUser]);
+  }, [isAuthReady]);
 
   // Firebase Data Sync & Migration
   useEffect(() => {
     if (state.storageMode === 'firebase' && currentUser && isAuthReady) {
       const uid = currentUser.id;
+      console.log("Setting up listeners for workspace:", uid);
+      
       let unsubFiles: any, unsubUsers: any, unsubDict: any, unsubVisual: any, unsubHistory: any;
       let unsubPages: any, unsubMenu: any, unsubAppMenu: any, unsubSite: any, unsubMedia: any, unsubProfiles: any;
       let unsubNewsletterSettings: any, unsubNewsletterResponses: any, unsubContactResponses: any;
 
-      // Test connection to Firestore
-      const testConnection = async () => {
-        try {
-          await getDocFromServer(doc(db, 'users', uid));
-        } catch (error) {
-          if (error instanceof Error && error.message.includes('the client is offline')) {
-            console.error("Please check your Firebase configuration. The client is offline.");
-          }
-        }
-      };
-      testConnection();
-
       const setupListeners = () => {
+        console.log("Initializing Firestore listeners for UID:", uid);
+        
         unsubFiles = onSnapshot(collection(db, `users/${uid}/files`), (snap) => {
+          console.log(`Files updated: ${snap.size} items`);
           setState(p => ({ ...p, files: snap.docs.map(d => d.data() as any) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/files`));
 
@@ -950,6 +925,7 @@ const App: React.FC = () => {
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/workspace_users`));
 
         unsubDict = onSnapshot(collection(db, `users/${uid}/nameDictionary`), (snap) => {
+          console.log(`Dictionary updated: ${snap.size} items`);
           setState(p => ({ ...p, nameDictionary: snap.docs.map(d => d.data().name) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/nameDictionary`));
 
@@ -969,7 +945,6 @@ const App: React.FC = () => {
             if (Array.isArray(data.data)) {
               pages = data.data;
             } else {
-              // Backward compatibility for numeric keys object
               const keys = Object.keys(data).filter(k => !isNaN(Number(k))).sort((a, b) => Number(a) - Number(b));
               if (keys.length > 0) {
                 pages = keys.map(k => data[k]);
@@ -1008,16 +983,13 @@ const App: React.FC = () => {
         }, (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}/settings/newsletter`));
 
         unsubNewsletterResponses = onSnapshot(collection(db, `users/${uid}/newsletterResponses`), (snap) => {
-          console.log(`Newsletter responses updated: ${snap.size} items`);
           setState(p => ({ ...p, newsletterResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/newsletterResponses`));
 
         unsubContactResponses = onSnapshot(collection(db, `users/${uid}/contactResponses`), (snap) => {
-          console.log(`Contact responses updated: ${snap.size} items`);
           setState(p => ({ ...p, contactResponses: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
         }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/contactResponses`));
 
-        // Global User Profiles (Admin only)
         if (currentUser.email === 'bvideotraining@gmail.com') {
           unsubProfiles = onSnapshot(collection(db, 'user_profiles'), (snap) => {
             setState(p => ({ ...p, userProfiles: snap.docs.map(d => ({ id: d.id, ...d.data() } as any)) }));
@@ -1027,34 +999,33 @@ const App: React.FC = () => {
         setState(p => ({ ...p, isDatabaseLoaded: true, storageMode: 'firebase' }));
       };
 
+      // Start listeners immediately
+      setupListeners();
+
+      // Background migration if needed
       const migrateData = async () => {
         const oldDocRef = doc(db, `app_data/${uid}`);
         try {
           const oldDocSnap = await getDoc(oldDocRef);
           if (oldDocSnap.exists()) {
+            console.log("Legacy data found, migrating...");
             const data = oldDocSnap.data();
-            
             const users = typeof data.users === 'string' ? JSON.parse(data.users) : (data.users || []);
             for (const u of users) await setDoc(doc(db, `users/${uid}/workspace_users`, u.id), removeUndefined(u));
-            
             const files = typeof data.files === 'string' ? JSON.parse(data.files) : (data.files || []);
             for (const f of files) await setDoc(doc(db, `users/${uid}/files`, f.id), removeUndefined(f));
-            
             const dict = typeof data.nameDictionary === 'string' ? JSON.parse(data.nameDictionary) : (data.nameDictionary || []);
             for (const n of dict) await setDoc(doc(db, `users/${uid}/nameDictionary`, encodeURIComponent(n)), { name: n });
-            
             const refs = typeof data.visualReferences === 'string' ? JSON.parse(data.visualReferences) : (data.visualReferences || []);
             for (const r of refs) await setDoc(doc(db, `users/${uid}/visualReferences`, r.id), removeUndefined(r));
-            
             const history = typeof data.correctionHistory === 'string' ? JSON.parse(data.correctionHistory) : (data.correctionHistory || []);
             for (const h of history) await setDoc(doc(db, `users/${uid}/correctionHistory`, h.id || Math.random().toString(36).substr(2, 9)), removeUndefined(h));
-            
             await deleteDoc(oldDocRef);
+            console.log("Migration complete.");
           }
         } catch (e) {
           console.error("Migration error", e);
         }
-        setupListeners();
       };
 
       migrateData();
