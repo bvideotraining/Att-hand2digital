@@ -64,6 +64,7 @@ AMBIGUITY RESOLUTION PROTOCOL (USING VISUAL REFERENCES):
    - **Positional Mapping**: Do NOT shift the next day's data into an empty slot. Each column pair is locked to a specific date based on its position in the grid.
    - **Last Day Preservation**: Ensure the very last day in the range (e.g., 05/03) is extracted. Do not truncate the data.
    - If the Start Date is 18/02 and End Date is 05/03, there are exactly 16 days. You must account for all 16 slots in the grid.
+   - **FULL HEIGHT SCAN**: You MUST scan the image from the very top to the very bottom. Do not stop until you have processed every single row.
 
 9. **Completeness and End-Date Preservation**:
    - You MUST process every row in the image.
@@ -87,13 +88,17 @@ INSTRUCTIONS:
 - Use the Date Range to ensure the "date" field in the output for each record is accurate.
 - **STRICT ALIGNMENT**: If an employee is absent on a specific date (e.g., 28/02), the record for that date MUST exist with null values. Do NOT skip the date or shift the next day's data into it.
 - Ensure the full range from {{START_DATE}} to {{END_DATE}} is covered.
-- **EXHAUSTIVE EXTRACTION (CRITICAL)**: You MUST extract data for EVERY SINGLE EMPLOYEE listed in the image. Count the rows before you begin. Do not stop early. If there are 10 employees, you must output 10 employee records.
+- **EXHAUSTIVE EXTRACTION (CRITICAL)**: You MUST extract data for EVERY SINGLE EMPLOYEE listed in the image. 
+- **ROW-BY-ROW VERIFICATION**: Before generating the JSON, count the total number of rows (employees) in the image. If you find 10 employees, your "employees" array MUST have exactly 10 objects.
+- **DO NOT TRUNCATE**: Do not stop after a few rows. Even if the table is long, you must process it to the very end. Truncating the list is a critical failure.
 - **TOKEN SAVING**: Omit the confidence scores ('ic' and 'oc') if you are highly confident in the value, to save output space. Only include them if confidence is below 90.
 `;
 
 const EXTRACTION_SCHEMA = {
   type: Type.OBJECT,
   properties: {
+    extraction_plan: { type: Type.STRING, description: "List the names of all employees identified in the image before starting the JSON extraction" },
+    total_rows_identified: { type: Type.NUMBER, description: "Total number of employee rows found in the image" },
     employees: {
       type: Type.ARRAY,
       items: {
@@ -121,7 +126,7 @@ const EXTRACTION_SCHEMA = {
       }
     }
   },
-  required: ["employees"]
+  required: ["extraction_plan", "total_rows_identified", "employees"]
 };
 
 export async function extractAttendanceData(
@@ -173,13 +178,13 @@ export async function extractAttendanceData(
     });
 
     const response = await getAI(customApiKey).models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-3.1-pro-preview',
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: EXTRACTION_SCHEMA as any,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
           { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -214,12 +219,13 @@ export async function extractAttendanceData(
         const repaired = jsonrepair(cleanText);
         parsed = JSON.parse(repaired);
       }
+      console.log(`AI identified ${parsed.total_rows_identified} rows and extracted ${parsed.employees?.length} employees. Plan: ${parsed.extraction_plan?.substring(0, 100)}...`);
     } catch (parseError) {
       console.error("JSON Parse Error. Raw text length:", text.length);
       console.error("Text starts with:", text.substring(0, 100));
       console.error("Text ends with:", text.substring(text.length - 100));
-      if (text.length > 10000) {
-        throw new Error("The attendance sheet is too large and the extracted data exceeded the maximum limit. Please try cropping the image into smaller sections (e.g., half a page at a time).");
+      if (text.length > 50000) {
+        throw new Error("The attendance sheet is too large and the extracted data exceeded the maximum limit.");
       }
       throw new Error(`The AI returned malformed data (length: ${text.length}). Please try again. Snippet: ${text.substring(0, 50)}...`);
     }
