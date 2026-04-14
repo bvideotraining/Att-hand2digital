@@ -66,10 +66,13 @@ AMBIGUITY RESOLUTION PROTOCOL (USING VISUAL REFERENCES):
    - If the Start Date is 18/02 and End Date is 05/03, there are exactly 16 days. You must account for all 16 slots in the grid.
    - **FULL HEIGHT SCAN**: You MUST scan the image from the very top to the very bottom. Do not stop until you have processed every single row.
 
-9. **Completeness and End-Date Preservation**:
-   - You MUST process every row in the image.
-   - You MUST process every column from the Start Date (Right) to the End Date (Left).
-   - Do NOT stop early. The final column on the far left MUST correspond to the End Date. Truncating the last day is a failure.
+9. **ZERO TRUNCATION POLICY (MANDATORY)**:
+   - You are a data entry robot. 
+   - You MUST process the image from top to bottom.
+   - If you see 10 names, you MUST output 10 objects in the 'employees' array.
+   - Stopping at 3 rows is a CRITICAL SYSTEM FAILURE.
+   - Do not summarize. Do not skip.
+   - Process every row and every column from {{START_DATE}} to {{END_DATE}}.
 `;
 
 const USER_PROMPT = `
@@ -91,21 +94,20 @@ INSTRUCTIONS:
 - **EXHAUSTIVE EXTRACTION (CRITICAL)**: You MUST extract data for EVERY SINGLE EMPLOYEE listed in the image. 
 - **ROW-BY-ROW VERIFICATION**: Before generating the JSON, count the total number of rows (employees) in the image. If you find 10 employees, your "employees" array MUST have exactly 10 objects.
 - **DO NOT TRUNCATE**: Do not stop after a few rows. Even if the table is long, you must process it to the very end. Truncating the list is a critical failure.
-- **TOKEN SAVING**: Omit the confidence scores ('ic' and 'oc') if you are highly confident in the value, to save output space. Only include them if confidence is below 90.
+- **TOKEN SAVING**: DO NOT output confidence scores. Only output the name and the times.
 `;
 
 const EXTRACTION_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    extraction_plan: { type: Type.STRING, description: "List the names of all employees identified in the image before starting the JSON extraction" },
-    total_rows_identified: { type: Type.NUMBER, description: "Total number of employee rows found in the image" },
+    total_rows: { type: Type.NUMBER, description: "Total number of employee rows found in the image" },
     employees: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
+          idx: { type: Type.NUMBER, description: "Row index (1, 2, 3...)" },
           n: { type: Type.STRING, description: "Employee name" },
-          nc: { type: Type.NUMBER, description: "Name confidence" },
           r: {
             type: Type.ARRAY,
             description: "Records",
@@ -114,19 +116,17 @@ const EXTRACTION_SCHEMA = {
               properties: {
                 d: { type: Type.STRING, description: "Date DD/MM" },
                 i: { type: Type.STRING, nullable: true, description: "Check in time" },
-                ic: { type: Type.NUMBER, description: "Check in confidence", nullable: true },
-                o: { type: Type.STRING, nullable: true, description: "Check out time" },
-                oc: { type: Type.NUMBER, description: "Check out confidence", nullable: true }
+                o: { type: Type.STRING, nullable: true, description: "Check out time" }
               },
               required: ["d"]
             }
           }
         },
-        required: ["n", "nc", "r"]
+        required: ["idx", "n", "r"]
       }
     }
   },
-  required: ["extraction_plan", "total_rows_identified", "employees"]
+  required: ["total_rows", "employees"]
 };
 
 export async function extractAttendanceData(
@@ -178,7 +178,7 @@ export async function extractAttendanceData(
     });
 
     const response = await getAI(customApiKey).models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-flash-latest',
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
@@ -219,7 +219,7 @@ export async function extractAttendanceData(
         const repaired = jsonrepair(cleanText);
         parsed = JSON.parse(repaired);
       }
-      console.log(`AI identified ${parsed.total_rows_identified} rows and extracted ${parsed.employees?.length} employees. Plan: ${parsed.extraction_plan?.substring(0, 100)}...`);
+      console.log(`AI identified ${parsed.total_rows} rows and extracted ${parsed.employees?.length} employees.`);
     } catch (parseError) {
       console.error("JSON Parse Error. Raw text length:", text.length);
       console.error("Text starts with:", text.substring(0, 100));
@@ -239,17 +239,17 @@ export async function extractAttendanceData(
       employees: parsed.employees.map((emp: any) => ({
         employee_name: {
           value: emp.n,
-          confidence: emp.nc
+          confidence: 100 // Default to 100 as we removed it from AI output
         },
         records: emp.r.map((rec: any) => ({
           date: rec.d,
           check_in: {
             value: rec.i || null,
-            confidence: rec.ic ?? 100
+            confidence: 100
           },
           check_out: {
             value: rec.o || null,
-            confidence: rec.oc ?? 100
+            confidence: 100
           }
         }))
       }))
