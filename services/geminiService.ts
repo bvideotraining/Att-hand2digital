@@ -173,16 +173,27 @@ export async function extractAttendanceData(
     });
 
     const response = await getAI(customApiKey).models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: 'gemini-1.5-pro',
       contents: { parts },
       config: {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: EXTRACTION_SCHEMA as any,
         maxOutputTokens: 8192,
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        ]
       },
     });
 
+    console.log("Gemini Response received. Candidates:", response.candidates?.length);
+    if (response.candidates && response.candidates.length > 0) {
+      console.log("Finish Reason:", response.candidates[0].finishReason);
+    }
+    
     const text = response.text || '';
     let cleanText = text.trim();
     
